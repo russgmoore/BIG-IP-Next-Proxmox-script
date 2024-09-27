@@ -9,6 +9,7 @@
 # Author: Russell Moore
 # LicenseL MIT
 
+# a nice header to show during build
 function header_info {
   clear
   cat <<"EOF"
@@ -22,10 +23,16 @@ EOF
 }
 header_info
 echo -e "\n Loading..."
+
+#generate some mac addresses
 GEN_MAC1=02:$(openssl rand -hex 5 | awk '{print toupper($0)}' | sed 's/\(..\)/\1:/g; s/.$//')
 GEN_MAC2=02:$(openssl rand -hex 5 | awk '{print toupper($0)}' | sed 's/\(..\)/\1:/g; s/.$//')
+
+#determine the next available ID for a VM
 NEXTID=$(pvesh get /cluster/nextid)
 
+
+#setup some colors for our interface
 YW=$(echo "\033[33m")
 BL=$(echo "\033[36m")
 HA=$(echo "\033[1;34m")
@@ -42,6 +49,8 @@ THIN="discard=on,ssd=1,"
 set -e
 trap 'error_handler $LINENO "$BASH_COMMAND"' ERR
 trap cleanup EXIT
+
+#our error handler
 function error_handler() {
   local exit_code="$?"
   local line_number="$1"
@@ -51,12 +60,35 @@ function error_handler() {
   cleanup_vmid
 }
 
+
+
+# Function to rename file if it ends with ".qcow" to ".qcow2"
+rename_qcow_file() {
+    local file_path="$1"
+
+    # Check if the file ends with ".qcow"
+    if [[ "$file_path" == *.qcow ]]; then
+        # Create new file path with ".qcow2" extension
+        local new_file_path="${file_path%.qcow}.qcow2"
+        
+        # Rename the file
+        mv "$file_path" "$new_file_path"
+        
+        # Update the original variable contents
+        file_path="$new_file_path"
+    fi
+
+    echo "$file_path"
+}
+
+
 function cleanup_vmid() {
   if qm status $VMID &>/dev/null; then
     qm stop $VMID &>/dev/null
     qm destroy $VMID &>/dev/null
   fi
 }
+
 
 function cleanup() {
   popd >/dev/null
@@ -72,17 +104,86 @@ else
 fi
 
 
-while true; do
-   URL=$(whiptail --backtitle "Proxmox F5 CM Install Script" --inputbox "Enter the CM Download URL" 8 58  --title "URL" --cancel-button Exit-Script 3>&1 1>&2 2>&3)
-    if [ -z $URL ]; then
-      whiptail --msgbox "Value cannot be empty. Please try again." 10 60
-    else
-      #URL="'$URL'"
-      echo -e "${DGN}Download URL: ${BGN}$URL${CL}"
-      sleep 2
-      break
-    fi
-done
+function prompt_for_input() {
+    local input_type=""
+    local selected_input=""
+
+    while true; do
+        choice=$(whiptail --title "File location Selection" --menu "Choose an option" 15 60 4 \
+            "1" "Enter Download URL" \
+            "2" "Enter local file path" 3>&1 1>&2 2>&3)
+        
+        exitstatus=$?
+        if [ $exitstatus != 0 ]; then
+            echo "User canceled."
+            exit 1
+        fi
+
+        case $choice in
+            1)
+                input_type="URL"
+                selected_input=$(whiptail --inputbox "Enter the URL:" 8 60 3>&1 1>&2 2>&3)
+                if [[ $? != 0 ]]; then
+                    continue
+                fi
+
+                if [[ $selected_input =~ ^https?:// ]]; then
+                    host=$(echo $selected_input | awk -F[/:] '{print $4}')
+                    if ping -c 1 "$host" &> /dev/null; then
+                        break
+                    else
+                        whiptail --msgbox "Host is not resolvable. Please try again." 8 60
+                    fi
+                else
+                    whiptail --msgbox "Invalid URL format. Please try again." 8 60
+                fi
+                ;;
+            2)
+                input_type="LOCAL"
+                selected_input=$(whiptail --inputbox "Enter the file path:" 8 60 3>&1 1>&2 2>&3)
+                if [[ $? != 0 ]]; then
+                    continue
+                fi
+
+                if [[ -f $selected_input && -r $selected_input ]]; then
+                    break
+                else
+                    whiptail --msgbox "File does not exist or is not readable. Please try again." 8 60
+                fi
+                ;;
+            *)
+                whiptail --msgbox "Invalid choice. Please try again." 8 60
+                ;;
+        esac
+    done
+
+    # Export the variables
+    export INPUT_TYPE="$input_type"
+    export INPUT_VALUE="$selected_input"
+}
+
+
+prompt_for_input
+
+function parse_url() {
+    local url=$1
+    local urlhost=""
+    local uribase=""
+
+    # Extract the hostname from the URL
+    urlhost=$(echo "$url" | awk -F[/:] '{print $4}')
+
+    # Extract the URI without the query string and strip the leading "/"
+    uribase=$(echo "$url" | sed 's|.*/\([^/?]*\)?.*|\1|')
+
+    # Export the variables
+    export URLHOST="$urlhost"
+    export URIFILE="$uribase"
+}
+
+if [[ "$INPUT_TYPE" == "URL" ]]; then
+    parse_url "$INPUT_VALUE"
+fi
 
 function msg_info() {
   local msg="$1"
@@ -161,6 +262,10 @@ function default_settings() {
   BRG2="vmbr1"
   MAC1="$GEN_MAC1"
   MAC2="$GEN_MAC2"
+  IPADDR1="192.168.1.233
+  IPADDR2="10.10.10.10
+  GW="192.168.1.2"
+  NS="192.168.1.2"
   CIUSER="admin"
   CIPWD="admin"
   CITYPE="nocloud"
@@ -182,6 +287,10 @@ function default_settings() {
   echo -e "${DGN}Using adminuser: ${BGN}${CIUSER}${CL}"
   echo -e "${DGN}Using admin password: ${BGN}${CIPWD}${CL}"
   echo -e "${BL}Creating an F5 BIG-IP Next Configuration Manager VM  using the above default settings${CL}"
+#  echo -e "${DGN}URL Hostname: ${BGN}$URLHOST${CL}"
+#  echo -e "${DGN}FileName: ${BGN}$URIFILE${CL}"
+  echo -e "${DGN}File Location: ${BGN}$INPUT_TYPE${CL}"
+  echo -e "${DGN}File Path: ${BGN}$INPUT_VALUE${CL}"
 }
 
 function advanced_settings() {
@@ -202,6 +311,75 @@ function advanced_settings() {
     fi
   done
 
+  while true; do
+    if PW1=$(whiptail --backtitle "Proxmox VE Helper Scripts" --passwordbox "\nSet Root Password (needed for root ssh access)" 9 58 --title "PASSWORD (leave blank for automatic login)" 3>&1 1>&2 2>&3); then
+      if [[ ! -z "$PW1" ]]; then
+        if [[ "$PW1" == *" "* ]]; then
+          whiptail --msgbox "Password cannot contain spaces. Please try again." 8 58
+        elif [ ${#PW1} -lt 8 ]; then
+          whiptail --msgbox "Password must be at least 8 characters long. Please try again." 8 58
+        else
+          if PW2=$(whiptail --backtitle "Proxmox VE Helper Scripts" --passwordbox "\nVerify Root Password" 9 58 --title "PASSWORD VERIFICATION" 3>&1 1>&2 2>&3); then
+            if [[ "$PW1" == "$PW2" ]]; then
+              CIPWD="PW1"
+              echo -e "${DGN}Using Root Password: ${BGN}********${CL}"
+              break
+            else
+              whiptail --msgbox "Passwords do not match. Please try again." 8 58
+            fi
+          else
+            exit-script
+          fi
+        fi
+      else
+        PW1="admin"
+        CIPWD="admin"
+        echo -e "${DGN}Using Root Password: ${BGN}$PW1${CL}"
+        break
+      fi
+    else
+      exit-script
+    fi
+  done
+
+  while true; do
+    NET=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Set a Static IPv4 CIDR Address (/24)" 8 58 dhcp --title "IP ADDRESS" 3>&1 1>&2 2>&3)
+    exit_status=$?
+    if [ $exit_status -eq 0 ]; then
+      if [ "$NET" = "dhcp" ]; then
+        echo -e "${DGN}Using IP Address: ${BGN}$NET${CL}"
+        break
+      else
+        if [[ "$NET" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$ ]]; then
+          echo -e "${DGN}Using IP Address: ${BGN}$NET${CL}"
+          break
+        else
+          whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "$NET is an invalid IPv4 CIDR address. Please enter a valid IPv4 CIDR address or 'dhcp'" 8 58
+        fi
+      fi
+    else
+      exit-script
+    fi
+  done
+
+  if [ "$NET" != "dhcp" ]; then
+    while true; do
+      GATE1=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Enter gateway IP address" 8 58 --title "Gateway IP" 3>&1 1>&2 2>&3)
+      if [ -z "$GATE1" ]; then
+        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Gateway IP address cannot be empty" 8 58
+      elif [[ ! "$GATE1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Invalid IP address format" 8 58
+      else
+        GATE=",gw=$GATE1"
+        echo -e "${DGN}Using Gateway IP Address: ${BGN}$GATE1${CL}"
+        break
+      fi
+    done
+  else
+    GATE=""
+    echo -e "${DGN}Using Gateway IP Address: ${BGN}Default${CL}"
+  fi
+  
   if MACH=$(whiptail --backtitle "Proxmox F5 CM Install Script" --title "MACHINE TYPE" --radiolist --cancel-button Exit-Script "Choose Type" 10 58 2 \
     "i440fx" "Machine i440fx" OFF \
     "q35" "Machine q35" ON \
@@ -363,7 +541,6 @@ function advanced_settings() {
     advanced_settings
   fi
   CIUSER="admin"
-  CIPWD="admin"
   SOCKET="1"
 
 
@@ -416,13 +593,19 @@ fi
 msg_ok "Using ${CL}${BL}$STORAGE${CL} ${GN}for Storage Location."
 msg_ok "Virtual Machine ID is ${CL}${BL}$VMID${CL}."
 msg_info "Retrieving the URL for the BIG-IP Next Configuration Manager Disk Image"
-sleep 2
+sleep 1
 msg_ok "${CL}${BL}${URL}${CL}"
-echo -e "$PWD"
-echo $URL
-wget -O BIG-IP-Next-CentralManager.qcow2 -q --show-progress $URL
+
+if [[ "$INPUT_TYPE" == "URL" ]]; then
+    parse_url "$INPUT_VALUE"
+    wget -O "$URIFILE" -q --show-progress "$INPUT_VALUE"
+    FILE="$PWD"/"$URIFILE"
+  else
+    FILE="$INPUT_VALUE"
+fi
+
 echo -en "\e[1A\e[0K"
-FILE=BIG-IP-Next-CentralManager.qcow2
+
 msg_ok "Downloaded ${CL}${BL}${FILE}${CL}"
 
 STORAGE_TYPE=$(pvesm status -storage $STORAGE | awk 'NR>1 {print $2}')
@@ -448,12 +631,15 @@ for i in {0,1}; do
 done
 
 msg_info "Creating an F5 BIG-IP Next CM  VM"
-#echo $VMID,$RAM_SIZE,$SOCKET,$CORE_COUNT,$CPU_TYPE,$HN,$BRG1,$BRG2,$MAC1,$MAC2,$CIUSER,$CIPWD,$STORAGE
+
+#rename the file to end with ".qcom2" or import will fail
+FILE=$(rename_qcow_file $FILE)
+
 qm create $VMID --memory $RAM_SIZE --socket $SOCKET --cores $CORE_COUNT --bios seabios --cpu=$CPU_TYPE --name $HN --ostype=l26 \
   -net0 virtio,bridge=$BRG1,macaddr=$MAC1 -net1 virtio,bridge=$BRG2,macaddr=$MAC2 --scsihw virtio-scsi-single \
   --citype nocloud --ciupgrade=0 --ciuser=$CIUSER --cipassword=$CIPWD --ide2=${STORAGE}:cloudinit 
 qm set $VMID \
-  --virtio0 ${STORAGE}:0,import-from="$PWD"/"$FILE" \
+  --virtio0 ${STORAGE}:0,import-from="$FILE" \
   -boot order=virtio0 
 
 msg_ok "Created a BIG-IP Next Configuration Manager VM ${CL}${BL}(${HN})"
