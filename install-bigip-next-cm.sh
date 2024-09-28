@@ -259,8 +259,8 @@ function default_settings() {
   BRG2="vmbr1"
   MAC1="$GEN_MAC1"
   MAC2="$GEN_MAC2"
-  IPADDR1="192.168.1.233
-  IPADDR2="10.10.10.10
+  IPADDR1="192.168.1.233/24"
+  IPADDR2="10.10.10.10/24"
   GW="192.168.1.2"
   NS="192.168.1.2"
   CIUSER="admin"
@@ -268,6 +268,28 @@ function default_settings() {
   CITYPE="nocloud"
   VLAN1=""
   VLAN2=""
+  echo -e "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
+  echo -e "${DGN}Using Machine Type: ${BGN}${MACHINE}${CL}"
+  echo -e "${DGN}Using Disk Cache: ${BGN}None${CL}"
+  echo -e "${DGN}Using Hostname: ${BGN}${HN}${CL}"
+  echo -e "${DGN}Using CPU Model: ${BGN}${CPU_TYPE}${CL}"
+  echo -e "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
+  echo -e "${DGN}Allocated RAM: ${BGN}${RAM_SIZE}${CL}"
+  echo -e "${DGN}Using Bridge1: ${BGN}${BRG1}${CL}"
+  echo -e "${DGN}Using Bridge 1 MAC Address: ${BGN}${MAC1}${CL}"
+  echo -e "${DGN}Using Bridge 1 VLAN1: ${BGN}Default${CL}"
+  echo -e "${DGN}Using Bridge2: ${BGN}${BRG2}${CL}"
+  echo -e "${DGN}Using Bridge 2 MAC Address: ${BGN}${MAC2}${CL}"
+  echo -e "${DGN}Using Bridge 2 VLAN2: ${BGN}Default${CL}"
+  echo -e "${DGN}Using adminuser: ${BGN}${CIUSER}${CL}"
+  echo -e "${DGN}Using admin password: ${BGN}${CIPWD}${CL}"
+  echo -e "${DGN}Bridge1 IP: ${BGN}${IPADDR1}${CL}"
+  echo -e "${DGN}Bridge2 IP: ${BGN}${IPADDR2}${CL}"
+  echo -e "${DGN}Gateway IP: ${BGN}${GW}${CL}"
+  echo -e "${DGN}Nameserver IP: ${BGN}${NS}${CL}"
+  echo -e "${BL}Creating an F5 BIG-IP Next Configuration Manager VM  using the above default settings${CL}"
+  echo -e "${DGN}File Location: ${BGN}$INPUT_TYPE${CL}"
+  echo -e "${DGN}File Path: ${BGN}$INPUT_VALUE${CL}"
 }
 
 function advanced_settings() {
@@ -347,7 +369,7 @@ function advanced_settings() {
       elif [[ ! "$GATE1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
         whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Invalid IP address format" 8 58
       else
-        GATE=",gw=$GATE1"
+        GATE="$GATE1"
         echo -e "${DGN}Using Gateway IP Address: ${BGN}$GATE1${CL}"
         break
       fi
@@ -357,6 +379,24 @@ function advanced_settings() {
     echo -e "${DGN}Using Gateway IP Address: ${BGN}Default${CL}"
   fi
 
+  if [ "$NET" != "dhcp" ]; then
+    while true; do
+      NS1=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Enter Nameserver IP address" 8 58 --title "Nameserver IP" 3>&1 1>&2 2>&3)
+      if [ -z "$NS1" ]; then
+        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Nameserver IP address cannot be empty" 8 58
+      elif [[ ! "$NS1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Invalid IP address format" 8 58
+      else
+        NS="$NS1"
+        echo -e "${DGN}Using Nameserver IP Address: ${BGN}$GATE1${CL}"
+        break
+      fi
+    done
+  else
+    NS="8.8.8.8"
+    echo -e "${DGN}Using Nameserver IP Address: ${BGN}8.8.8.8${CL}"
+  fi
+
   if MACH=$(whiptail --backtitle "Proxmox F5 CM Install Script" --title "MACHINE TYPE" --radiolist --cancel-button Exit-Script "Choose Type" 10 58 2 \
     "i440fx" "Machine i440fx" OFF \
     "q35" "Machine q35" ON \
@@ -364,11 +404,11 @@ function advanced_settings() {
     if [ $MACH = q35 ]; then
       echo -e "${DGN}Using Machine Type: ${BGN}$MACH${CL}"
       FORMAT=""
-      MACHINE=" -machine q35"
+      MACHINE="q35"
     else
       echo -e "${DGN}Using Machine Type: ${BGN}$MACH${CL}"
-      FORMAT=",efitype=4m"
-      MACHINE=""
+      FORMAT=""
+      MACHINE="i440fx"
     fi
   else
     exit-script
@@ -517,6 +557,9 @@ function advanced_settings() {
     echo -e "${RD}Using Advanced Settings${CL}"
     advanced_settings
   fi
+
+  IPADDR1=$NET
+  GW=$GATE
   CIUSER="admin"
   SOCKET="1"
 
@@ -542,26 +585,8 @@ pve_check
 ssh_check
 start_script
 
-echo -e "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
-echo -e "${DGN}Using Machine Type: ${BGN}${MACHINE}${CL}"
-echo -e "${DGN}Using Disk Cache: ${BGN}None${CL}"
-echo -e "${DGN}Using Hostname: ${BGN}${HN}${CL}"
-echo -e "${DGN}Using CPU Model: ${BGN}${CPU_TYPE}${CL}"
-echo -e "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
-echo -e "${DGN}Allocated RAM: ${BGN}${RAM_SIZE}${CL}"
-echo -e "${DGN}Using Bridge1: ${BGN}${BRG1}${CL}"
-echo -e "${DGN}Using Bridge 1 MAC Address: ${BGN}${MAC1}${CL}"
-echo -e "${DGN}Using Bridge 1 VLAN1: ${BGN}Default${CL}"
-echo -e "${DGN}Using Bridge2: ${BGN}${BRG2}${CL}"
-echo -e "${DGN}Using Bridge 2 MAC Address: ${BGN}${MAC2}${CL}"
-echo -e "${DGN}Using Bridge 2 VLAN2: ${BGN}Default${CL}"
-echo -e "${DGN}Using adminuser: ${BGN}${CIUSER}${CL}"
-echo -e "${DGN}Using admin password: ${BGN}${CIPWD}${CL}"
-echo -e "${BL}Creating an F5 BIG-IP Next Configuration Manager VM  using the above default settings${CL}"
-echo -e "${DGN}File Location: ${BGN}$INPUT_TYPE${CL}"
-echo -e "${DGN}File Path: ${BGN}$INPUT_VALUE${CL}"
-
 msg_info "Validating Storage"
+
 while read -r line; do
   TAG=$(echo $line | awk '{print $1}')
   TYPE=$(echo $line | awk '{printf "%-10s", $2}')
@@ -573,7 +598,9 @@ while read -r line; do
   fi
   STORAGE_MENU+=("$TAG" "$ITEM" "OFF")
 done < <(pvesm status -content images | awk 'NR>1')
+
 VALID=$(pvesm status -content images | awk 'NR>1')
+
 if [ -z "$VALID" ]; then
   msg_error "Unable to detect a valid storage location."
   exit
@@ -587,6 +614,7 @@ else
       "${STORAGE_MENU[@]}" 3>&1 1>&2 2>&3) || exit
   done
 fi
+
 msg_ok "Using ${CL}${BL}$STORAGE${CL} ${GN}for Storage Location."
 msg_ok "Virtual Machine ID is ${CL}${BL}$VMID${CL}."
 msg_info "Retrieving the URL for the BIG-IP Next Configuration Manager Disk Image"
@@ -634,7 +662,9 @@ FILE=$(rename_qcow_file $FILE)
 
 qm create $VMID --memory $RAM_SIZE --socket $SOCKET --cores $CORE_COUNT --bios seabios --cpu=$CPU_TYPE --name $HN --ostype=l26 \
   -net0 virtio,bridge=$BRG1,macaddr=$MAC1 -net1 virtio,bridge=$BRG2,macaddr=$MAC2 --scsihw virtio-scsi-single \
-  --citype nocloud --ciupgrade=0 --ciuser=$CIUSER --cipassword=$CIPWD --ide2=${STORAGE}:cloudinit
+  --citype nocloud --ciupgrade=0 --ciuser=$CIUSER --cipassword=$CIPWD --ide2=${STORAGE}:cloudinit --nameserver $NS \
+  --ipconfig0 ip=$IPADDR1,gw=$GW
+exit
 qm set $VMID \
   --virtio0 ${STORAGE}:0,import-from="$FILE" \
   -boot order=virtio0
