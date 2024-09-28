@@ -64,21 +64,21 @@ function error_handler() {
 
 # Function to rename file if it ends with ".qcow" to ".qcow2"
 rename_qcow_file() {
-  local file_path="$1"
+    local file_path="$1"
 
-  # Check if the file ends with ".qcow"
-  if [[ "$file_path" == *.qcow ]]; then
-    # Create new file path with ".qcow2" extension
-    local new_file_path="${file_path%.qcow}.qcow2"
+    # Check if the file ends with ".qcow"
+    if [[ "$file_path" == *.qcow ]]; then
+        # Create new file path with ".qcow2" extension
+        local new_file_path="${file_path%.qcow}.qcow2"
+        
+        # Rename the file
+        mv "$file_path" "$new_file_path"
+        
+        # Update the original variable contents
+        file_path="$new_file_path"
+    fi
 
-    # Rename the file
-    mv "$file_path" "$new_file_path"
-
-    # Update the original variable contents
-    file_path="$new_file_path"
-  fi
-
-  echo "$file_path"
+    echo "$file_path"
 }
 
 
@@ -105,84 +105,84 @@ fi
 
 
 function prompt_for_input() {
-  local input_type=""
-  local selected_input=""
+    local input_type=""
+    local selected_input=""
 
-  while true; do
-    choice=$(whiptail --title "File location Selection" --menu "Choose an option" 15 60 4 \
+    while true; do
+        choice=$(whiptail --title "File location Selection" --menu "Choose an option" 15 60 4 \
             "1" "Enter Download URL" \
             "2" "Enter local file path" 3>&1 1>&2 2>&3)
-
-    exitstatus=$?
-    if [ $exitstatus != 0 ]; then
-      echo "User canceled."
-      exit 1
-    fi
-
-    case $choice in
-      1)
-        input_type="URL"
-        selected_input=$(whiptail --inputbox "Enter the URL:" 8 60 3>&1 1>&2 2>&3)
-        if [[ $? != 0 ]]; then
-          continue
+        
+        exitstatus=$?
+        if [ $exitstatus != 0 ]; then
+            echo "User canceled."
+            exit 1
         fi
 
-        if [[ $selected_input =~ ^https?:// ]]; then
-          host=$(echo $selected_input | awk -F[/:] '{print $4}')
-          if ping -c 1 "$host" &> /dev/null; then
-            break
-          else
-            whiptail --msgbox "Host is not resolvable. Please try again." 8 60
-          fi
-        else
-          whiptail --msgbox "Invalid URL format. Please try again." 8 60
-        fi
-        ;;
-      2)
-        input_type="LOCAL"
-        selected_input=$(whiptail --inputbox "Enter the file path:" 8 60 3>&1 1>&2 2>&3)
-        if [[ $? != 0 ]]; then
-          continue
-        fi
+        case $choice in
+            1)
+                input_type="URL"
+                selected_input=$(whiptail --inputbox "Enter the URL:" 8 60 3>&1 1>&2 2>&3)
+                if [[ $? != 0 ]]; then
+                    continue
+                fi
 
-        if [[ -f $selected_input && -r $selected_input ]]; then
-          break
-        else
-          whiptail --msgbox "File does not exist or is not readable. Please try again." 8 60
-        fi
-        ;;
-      *)
-        whiptail --msgbox "Invalid choice. Please try again." 8 60
-        ;;
-    esac
-  done
+                if [[ $selected_input =~ ^https?:// ]]; then
+                    host=$(echo $selected_input | awk -F[/:] '{print $4}')
+                    if ping -c 1 "$host" &> /dev/null; then
+                        break
+                    else
+                        whiptail --msgbox "Host is not resolvable. Please try again." 8 60
+                    fi
+                else
+                    whiptail --msgbox "Invalid URL format. Please try again." 8 60
+                fi
+                ;;
+            2)
+                input_type="LOCAL"
+                selected_input=$(whiptail --inputbox "Enter the file path:" 8 60 3>&1 1>&2 2>&3)
+                if [[ $? != 0 ]]; then
+                    continue
+                fi
 
-  # Export the variables
-  export INPUT_TYPE="$input_type"
-  export INPUT_VALUE="$selected_input"
+                if [[ -f $selected_input && -r $selected_input ]]; then
+                    break
+                else
+                    whiptail --msgbox "File does not exist or is not readable. Please try again." 8 60
+                fi
+                ;;
+            *)
+                whiptail --msgbox "Invalid choice. Please try again." 8 60
+                ;;
+        esac
+    done
+
+    # Export the variables
+    export INPUT_TYPE="$input_type"
+    export INPUT_VALUE="$selected_input"
 }
 
 
 prompt_for_input
 
 function parse_url() {
-  local url=$1
-  local urlhost=""
-  local uribase=""
+    local url=$1
+    local urlhost=""
+    local uribase=""
 
-  # Extract the hostname from the URL
-  urlhost=$(echo "$url" | awk -F[/:] '{print $4}')
+    # Extract the hostname from the URL
+    urlhost=$(echo "$url" | awk -F[/:] '{print $4}')
 
-  # Extract the URI without the query string and strip the leading "/"
-  uribase=$(echo "$url" | sed 's|.*/\([^/?]*\)?.*|\1|')
+    # Extract the URI without the query string and strip the leading "/"
+    uribase=$(echo "$url" | sed 's|.*/\([^/?]*\)?.*|\1|')
 
-  # Export the variables
-  export URLHOST="$urlhost"
-  export URIFILE="$uribase"
+    # Export the variables
+    export URLHOST="$urlhost"
+    export URIFILE="$uribase"
 }
 
 if [[ "$INPUT_TYPE" == "URL" ]]; then
-  parse_url "$INPUT_VALUE"
+    parse_url "$INPUT_VALUE"
 fi
 
 function msg_info() {
@@ -217,7 +217,7 @@ function pve_check() {
     echo -e "Exiting..."
     sleep 2
     exit
-  fi
+fi
 }
 
 function arch_check() {
@@ -379,7 +379,7 @@ function advanced_settings() {
     GATE=""
     echo -e "${DGN}Using Gateway IP Address: ${BGN}Default${CL}"
   fi
-
+  
   if MACH=$(whiptail --backtitle "Proxmox F5 CM Install Script" --title "MACHINE TYPE" --radiolist --cancel-button Exit-Script "Choose Type" 10 58 2 \
     "i440fx" "Machine i440fx" OFF \
     "q35" "Machine q35" ON \
@@ -496,7 +496,7 @@ function advanced_settings() {
   else
     exit-script
   fi
-
+ 
   if BRG2=$(whiptail --backtitle "Proxmox F5 CM Install Script" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $BRG2 ]; then
       BRG2="vmbr1"
@@ -597,11 +597,11 @@ sleep 1
 msg_ok "${CL}${BL}${URL}${CL}"
 
 if [[ "$INPUT_TYPE" == "URL" ]]; then
-  parse_url "$INPUT_VALUE"
-  wget -O "$URIFILE" -q --show-progress "$INPUT_VALUE"
-  FILE="$PWD"/"$URIFILE"
-else
-  FILE="$INPUT_VALUE"
+    parse_url "$INPUT_VALUE"
+    wget -O "$URIFILE" -q --show-progress "$INPUT_VALUE"
+    FILE="$PWD"/"$URIFILE"
+  else
+    FILE="$INPUT_VALUE"
 fi
 
 echo -en "\e[1A\e[0K"
@@ -610,19 +610,19 @@ msg_ok "Downloaded ${CL}${BL}${FILE}${CL}"
 
 STORAGE_TYPE=$(pvesm status -storage $STORAGE | awk 'NR>1 {print $2}')
 case $STORAGE_TYPE in
-  nfs | dir)
-    DISK_EXT=".qcow2"
-    DISK_REF="$VMID/"
-    DISK_IMPORT="-format qcow2"
-    THIN=""
-    ;;
-  btrfs)
-    DISK_EXT=".raw"
-    DISK_REF="$VMID/"
-    DISK_IMPORT="-format raw"
-    FORMAT=",efitype=4m"
-    THIN=""
-    ;;
+nfs | dir)
+  DISK_EXT=".qcow2"
+  DISK_REF="$VMID/"
+  DISK_IMPORT="-format qcow2"
+  THIN=""
+  ;;
+btrfs)
+  DISK_EXT=".raw"
+  DISK_REF="$VMID/"
+  DISK_IMPORT="-format raw"
+  FORMAT=",efitype=4m"
+  THIN=""
+  ;;
 esac
 for i in {0,1}; do
   disk="DISK$i"
@@ -637,10 +637,10 @@ FILE=$(rename_qcow_file $FILE)
 
 qm create $VMID --memory $RAM_SIZE --socket $SOCKET --cores $CORE_COUNT --bios seabios --cpu=$CPU_TYPE --name $HN --ostype=l26 \
   -net0 virtio,bridge=$BRG1,macaddr=$MAC1 -net1 virtio,bridge=$BRG2,macaddr=$MAC2 --scsihw virtio-scsi-single \
-  --citype nocloud --ciupgrade=0 --ciuser=$CIUSER --cipassword=$CIPWD --ide2=${STORAGE}:cloudinit
+  --citype nocloud --ciupgrade=0 --ciuser=$CIUSER --cipassword=$CIPWD --ide2=${STORAGE}:cloudinit 
 qm set $VMID \
   --virtio0 ${STORAGE}:0,import-from="$FILE" \
-  -boot order=virtio0
+  -boot order=virtio0 
 
 msg_ok "Created a BIG-IP Next Configuration Manager VM ${CL}${BL}(${HN})"
 msg_ok "Completed Successfully!\n"
