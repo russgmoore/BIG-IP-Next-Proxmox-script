@@ -162,9 +162,6 @@ function prompt_for_input() {
   export INPUT_VALUE="$selected_input"
 }
 
-
-prompt_for_input
-
 function parse_url() {
   local url=$1
   local urlhost=""
@@ -271,26 +268,6 @@ function default_settings() {
   CITYPE="nocloud"
   VLAN1=""
   VLAN2=""
-  echo -e "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
-  echo -e "${DGN}Using Machine Type: ${BGN}${MACHINE}${CL}"
-  echo -e "${DGN}Using Disk Cache: ${BGN}None${CL}"
-  echo -e "${DGN}Using Hostname: ${BGN}${HN}${CL}"
-  echo -e "${DGN}Using CPU Model: ${BGN}${CPU_TYPE}${CL}"
-  echo -e "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
-  echo -e "${DGN}Allocated RAM: ${BGN}${RAM_SIZE}${CL}"
-  echo -e "${DGN}Using Bridge1: ${BGN}${BRG1}${CL}"
-  echo -e "${DGN}Using Bridge 1 MAC Address: ${BGN}${MAC1}${CL}"
-  echo -e "${DGN}Using Bridge 1 VLAN1: ${BGN}Default${CL}"
-  echo -e "${DGN}Using Bridge2: ${BGN}${BRG2}${CL}"
-  echo -e "${DGN}Using Bridge 2 MAC Address: ${BGN}${MAC2}${CL}"
-  echo -e "${DGN}Using Bridge 2 VLAN2: ${BGN}Default${CL}"
-  echo -e "${DGN}Using adminuser: ${BGN}${CIUSER}${CL}"
-  echo -e "${DGN}Using admin password: ${BGN}${CIPWD}${CL}"
-  echo -e "${BL}Creating an F5 BIG-IP Next Configuration Manager VM  using the above default settings${CL}"
-#  echo -e "${DGN}URL Hostname: ${BGN}$URLHOST${CL}"
-#  echo -e "${DGN}FileName: ${BGN}$URIFILE${CL}"
-  echo -e "${DGN}File Location: ${BGN}$INPUT_TYPE${CL}"
-  echo -e "${DGN}File Path: ${BGN}$INPUT_VALUE${CL}"
 }
 
 function advanced_settings() {
@@ -558,11 +535,31 @@ function start_script() {
   fi
 }
 
+prompt_for_input
 check_root
 arch_check
 pve_check
 ssh_check
 start_script
+
+echo -e "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
+echo -e "${DGN}Using Machine Type: ${BGN}${MACHINE}${CL}"
+echo -e "${DGN}Using Disk Cache: ${BGN}None${CL}"
+echo -e "${DGN}Using Hostname: ${BGN}${HN}${CL}"
+echo -e "${DGN}Using CPU Model: ${BGN}${CPU_TYPE}${CL}"
+echo -e "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
+echo -e "${DGN}Allocated RAM: ${BGN}${RAM_SIZE}${CL}"
+echo -e "${DGN}Using Bridge1: ${BGN}${BRG1}${CL}"
+echo -e "${DGN}Using Bridge 1 MAC Address: ${BGN}${MAC1}${CL}"
+echo -e "${DGN}Using Bridge 1 VLAN1: ${BGN}Default${CL}"
+echo -e "${DGN}Using Bridge2: ${BGN}${BRG2}${CL}"
+echo -e "${DGN}Using Bridge 2 MAC Address: ${BGN}${MAC2}${CL}"
+echo -e "${DGN}Using Bridge 2 VLAN2: ${BGN}Default${CL}"
+echo -e "${DGN}Using adminuser: ${BGN}${CIUSER}${CL}"
+echo -e "${DGN}Using admin password: ${BGN}${CIPWD}${CL}"
+echo -e "${BL}Creating an F5 BIG-IP Next Configuration Manager VM  using the above default settings${CL}"
+echo -e "${DGN}File Location: ${BGN}$INPUT_TYPE${CL}"
+echo -e "${DGN}File Path: ${BGN}$INPUT_VALUE${CL}"
 
 msg_info "Validating Storage"
 while read -r line; do
