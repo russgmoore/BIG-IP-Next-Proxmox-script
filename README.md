@@ -1,3 +1,5 @@
+# F5 Proxmox Scripts to speed installation of products
+
 # BIG-IP-Next-Proxmox-Scripts
 
 # Prerequisit
@@ -17,3 +19,9 @@ Open the console and paste this:
 ```
 bash -c "$(wget -qLO - https://github.com/russgmoore/BIG-IP-Next-Proxmox-Scripts/raw/main/install-bigip-next-cm.sh)"
 ```
+
+# Distributed Cloud SMSv2 CE Script
+
+# Prerequisit
+You must have created an SMSv2 site with type "KVM", created a token on that site, and you will need the download image location if you don't have the image stored
+locally on the proxmox host this script will run on.
