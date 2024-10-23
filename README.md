@@ -17,7 +17,7 @@ To use this script, go to the Proxmox Web console and not SSH.
 Open the console and paste this:
 
 ```
-bash -c "$(wget -qLO - https://github.com/russgmoore/BIG-IP-Next-Proxmox-Scripts/raw/main/install-bigip-next-cm.sh)"
+bash -c "$(wget -qLO - https://github.com/russgmoore/F5-Proxmox-Scripts/raw/main/install-bigip-next-cm.sh)"
 ```
 
 # Distributed Cloud SMSv2 CE Script
@@ -25,3 +25,10 @@ bash -c "$(wget -qLO - https://github.com/russgmoore/BIG-IP-Next-Proxmox-Scripts
 # Prerequisit
 You must have created an SMSv2 site with type "KVM", created a token on that site, and you will need the download image location if you don't have the image stored
 locally on the proxmox host this script will run on.
+
+To use this script, go to the Proxmox Web console and not SSH.
+Open the console and paste this:
+
+```
+bash -c "$(wget -qLO - https://github.com/russgmoore/F5-Proxmox-Scripts/raw/main/install-xc-smsv2.sh)"
+```
