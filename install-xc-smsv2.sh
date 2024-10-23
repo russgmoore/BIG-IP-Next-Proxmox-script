@@ -716,7 +716,7 @@ msg_info "Creating an F5 XC CE  VM"
 #rename the file to end with ".qcom2" or import will fail
 FILE=$(rename_qcow_file $FILE)
 
-qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE --net0 virtio,bridge=$BRG1 --scsihw virtio-scsi-single --name $HN --ostype l26 --ipconfig0 ip=dhcp --boot order=scsi0 --serial0 socket --vga serial0 --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE/
+qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE --net0 virtio,bridge=$BRG1 --scsihw virtio-scsi-single --name $HN --ostype l26 --ipconfig0 ip=dhcp --boot order=scsi0 --serial0 socket --vga serial0 --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE
 
 msg_ok "Created a F5 Distributed Cloud Customer Edge VM ${CL}${BL}(${HN})"
 msg_ok "Completed Successfully!\n"
