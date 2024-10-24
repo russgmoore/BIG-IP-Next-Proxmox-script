@@ -8,6 +8,7 @@
 # all other content Copyright (c) 2024
 # Author: Russell Moore
 # LicenseL MIT
+# https://github.com/russgmoore/F5-Proxmox-Scripts 
 
 # a nice header to show during build
 function header_info {
@@ -128,7 +129,7 @@ function select_proxmox_snippets_storage() {
 }
 
 # Function to rename file if it ends with ".qcow" to ".qcow2"
-rename_qcow_file() {
+function rename_qcow_file() {
   local file_path="$1"
 
   # Check if the file ends with ".qcow"
@@ -146,7 +147,7 @@ rename_qcow_file() {
   echo "$file_path"
 }
 
-function prompt_for_input() {
+function prompt_for_image() {
   local input_type=""
   local selected_input=""
 
@@ -204,7 +205,7 @@ function prompt_for_input() {
   export INPUT_VALUE="$selected_input"
 }
 
-request_token() {
+function request_token() {
     local token
     while true; do
         token=$(whiptail --title "XC SMSv2 Site Token" --inputbox "Please enter the token for the XC SMSv2 Site:" 10 60 3>&1 1>&2 2>&3)
@@ -239,9 +240,6 @@ function parse_url() {
   export URIFILE="$uribase"
 }
 
-if [[ "$INPUT_TYPE" == "URL" ]]; then
-  parse_url "$INPUT_VALUE"
-fi
 
 function msg_info() {
   local msg="$1"
@@ -360,7 +358,7 @@ function default_settings() {
 
 function advanced_settings() {
   while true; do
-    if VMID=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Set Virtual Machine ID" 8 58 $NEXTID --title "VIRTUAL MACHINE ID" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+    if VMID=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set Virtual Machine ID" 8 58 $NEXTID --title "VIRTUAL MACHINE ID" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
       if [ -z "$VMID" ]; then
         VMID="$NEXTID"
       fi
@@ -377,7 +375,7 @@ function advanced_settings() {
   done
 
   while true; do
-    NET=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Set a Static IPv4 CIDR Address (/24)" 8 58 dhcp --title "IP ADDRESS" 3>&1 1>&2 2>&3)
+    NET=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Static IPv4 CIDR Address (/24)" 8 58 dhcp --title "IP ADDRESS" 3>&1 1>&2 2>&3)
     exit_status=$?
     if [ $exit_status -eq 0 ]; then
       if [ "$NET" = "dhcp" ]; then
@@ -388,7 +386,7 @@ function advanced_settings() {
           echo -e "${DGN}Using IP Address: ${BGN}$NET${CL}"
           break
         else
-          whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "$NET is an invalid IPv4 CIDR address. Please enter a valid IPv4 CIDR address or 'dhcp'" 8 58
+          whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "$NET is an invalid IPv4 CIDR address. Please enter a valid IPv4 CIDR address or 'dhcp'" 8 58
         fi
       fi
     else
@@ -398,11 +396,11 @@ function advanced_settings() {
 
   if [ "$NET" != "dhcp" ]; then
     while true; do
-      GATE1=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Enter gateway IP address" 8 58 --title "Gateway IP" 3>&1 1>&2 2>&3)
+      GATE1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Enter gateway IP address" 8 58 --title "Gateway IP" 3>&1 1>&2 2>&3)
       if [ -z "$GATE1" ]; then
-        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Gateway IP address cannot be empty" 8 58
+        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Gateway IP address cannot be empty" 8 58
       elif [[ ! "$GATE1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Invalid IP address format" 8 58
+        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Invalid IP address format" 8 58
       else
         GATE="$GATE1"
         echo -e "${DGN}Using Gateway IP Address: ${BGN}$GATE1${CL}"
@@ -416,11 +414,11 @@ function advanced_settings() {
 
   if [ "$NET" != "dhcp" ]; then
     while true; do
-      NS1=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Enter Nameserver IP address" 8 58 --title "Nameserver IP" 3>&1 1>&2 2>&3)
+      NS1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Enter Nameserver IP address" 8 58 --title "Nameserver IP" 3>&1 1>&2 2>&3)
       if [ -z "$NS1" ]; then
-        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Nameserver IP address cannot be empty" 8 58
+        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Nameserver IP address cannot be empty" 8 58
       elif [[ ! "$NS1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-        whiptail --backtitle "Proxmox VE Helper Scripts" --msgbox "Invalid IP address format" 8 58
+        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Invalid IP address format" 8 58
       else
         NS="$NS1"
         echo -e "${DGN}Using Nameserver IP Address: ${BGN}$GATE1${CL}"
@@ -432,7 +430,7 @@ function advanced_settings() {
     echo -e "${DGN}Using Nameserver IP Address: ${BGN}8.8.8.8${CL}"
   fi
 
-  if MACH=$(whiptail --backtitle "Proxmox F5 CE Install Script" --title "MACHINE TYPE" --radiolist --cancel-button Exit-Script "Choose Type" 10 58 2 \
+  if MACH=$(whiptail --backtitle "F5 Install Script for Proxmox" --title "MACHINE TYPE" --radiolist --cancel-button Exit-Script "Choose Type" 10 58 2 \
     "i440fx" "Machine i440fx" OFF \
     "q35" "Machine q35" ON \
     3>&1 1>&2 2>&3); then
@@ -449,7 +447,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if VM_NAME=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Set Hostname" 8 58 node0 --title "HOSTNAME" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if VM_NAME=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set Hostname" 8 58 node0 --title "HOSTNAME" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $VM_NAME ]; then
       HN="node0"
       echo -e "${DGN}Using Hostname: ${BGN}$HN${CL}"
@@ -461,7 +459,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if CPU_TYPE=$(whiptail --backtitle "Proxmox F5 CE Install Script" --title "CPU MODEL" --radiolist "Choose" --cancel-button Exit-Script 10 58 2 \
+  if CPU_TYPE=$(whiptail --backtitle "F5 Install Script for Proxmox" --title "CPU MODEL" --radiolist "Choose" --cancel-button Exit-Script 10 58 2 \
     "0" "x86-64-v2-AES (Default)" ON \
     "1" "Host" OFF \
     3>&1 1>&2 2>&3); then
@@ -476,7 +474,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if CORE_COUNT=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Allocate CPU Cores" 8 58 8 --title "CORE COUNT (minimum 4)" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if CORE_COUNT=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Allocate CPU Cores" 8 58 8 --title "CORE COUNT (minimum 4)" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $CORE_COUNT ]; then
       CORE_COUNT="4"
       echo -e "${DGN}Allocated Cores: ${BGN}$CORE_COUNT${CL}"
@@ -487,7 +485,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if RAM_SIZE=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Allocate RAM in MiB" 8 58 16384 --title "RAM (minimum 16GB)" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if RAM_SIZE=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Allocate RAM in MiB" 8 58 16384 --title "RAM (minimum 16GB)" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $RAM_SIZE ]; then
       RAM_SIZE="16384"
       echo -e "${DGN}Allocated RAM: ${BGN}$RAM_SIZE${CL}"
@@ -498,7 +496,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if BRG1=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if BRG1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $BRG1 ]; then
       BRG1="vmbr0"
       echo -e "${DGN}Using Bridge: ${BGN}$BRG1${CL}"
@@ -509,7 +507,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if MAC1=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Set a Bridge 1 MAC Address" 8 58 $GEN_MAC1 --title "Bridge 1 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if MAC1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 1 MAC Address" 8 58 $GEN_MAC1 --title "Bridge 1 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $MAC1 ]; then
       MAC1="$GEN_MAC1"
       echo -e "${DGN}Using MAC Address: ${BGN}$MAC1${CL}"
@@ -521,7 +519,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if VLAN1=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Set a Vlan for bridge 1(leave blank for default)" 8 58 --title "VLAN Bridge 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if VLAN1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Vlan for bridge 1(leave blank for default)" 8 58 --title "VLAN Bridge 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $VLAN1 ]; then
       VLAN1="Default"
       VLAN1=""
@@ -534,7 +532,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if BRG2=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if BRG2=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $BRG2 ]; then
       BRG2="vmbr1"
       echo -e "${DGN}Using Bridge: ${BGN}$BRG2${CL}"
@@ -545,7 +543,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if MAC2=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Set a Bridge 2 MAC Address" 8 58 $GEN_MAC2 --title "Bridge 2 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if MAC2=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 2 MAC Address" 8 58 $GEN_MAC2 --title "Bridge 2 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $MAC2 ]; then
       MAC2="$GEN_MAC2"
       echo -e "${DGN}Using MAC Address: ${BGN}$MAC2${CL}"
@@ -557,7 +555,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if VLAN2=$(whiptail --backtitle "Proxmox F5 CE Install Script" --inputbox "Set a Vlan for bridge 2(leave blank for default)" 8 58 --title "VLAN Bridge 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if VLAN2=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Vlan for bridge 2(leave blank for default)" 8 58 --title "VLAN Bridge 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $VLAN2 ]; then
       VLAN2="Default"
       VLAN2=""
@@ -570,7 +568,7 @@ function advanced_settings() {
     exit-script
   fi
 
-  if (whiptail --backtitle "Proxmox F5 CE Install Script" --title "ADVANCED SETTINGS COMPLETE" --yesno "Ready to create an XC CE  VM?" --no-button Do-Over 10 58); then
+  if (whiptail --backtitle "F5 Install Script for Proxmox" --title "ADVANCED SETTINGS COMPLETE" --yesno "Ready to create an XC CE  VM?" --no-button Do-Over 10 58); then
     echo -e "${RD}Creating an F5 Distributed Cloud Customer Edge VM using the above advanced settings${CL}"
   else
     header_info
@@ -586,7 +584,7 @@ function advanced_settings() {
 }
 
 function start_script() {
-  if (whiptail --backtitle "Proxmox F5 CE Install Script" --title "SETTINGS" --yesno "Use Default Settings?" --no-button Advanced 10 58); then
+  if (whiptail --backtitle "F5 Install Script for Proxmox" --title "SETTINGS" --yesno "Use Default Settings?" --no-button Advanced 10 58); then
     header_info
     echo -e "${BL}Using Default Settings${CL}"
     default_settings
@@ -597,7 +595,7 @@ function start_script() {
   fi
 }
 
-get_storage() {
+function get_storage() {
     local content_type="$1"
 
     # Enumerate Storage for locations to place our Cloud-Init Snippet
@@ -623,7 +621,7 @@ get_storage() {
       mySTORAGE=${STORAGE_MENU[0]}
     else 
       while [ -z "${mySTORAGE:+x}" ]; do
-        mySTORAGE=$(whiptail --backtitle "Proxmox VE Helper Scripts" --title "Storage Pools" --radiolist \
+        mySTORAGE=$(whiptail --backtitle "F5 Install Script for Proxmox" --title "Storage Pools" --radiolist \
           "Which storage pool you would like to use for ${HN}?\nTo make a selection, use the Spacebar.\n" \
           16 $(($MSG_MAX_LENGTH + 23)) 6 \
           "${STORAGE_MENU[@]}" 3>&1 1>&2 2>&3) || exit 1
@@ -633,7 +631,7 @@ get_storage() {
     echo "$mySTORAGE"
 }
 
-create_cloud_config() {
+function create_cloud_config() {
     local location="$1"
     local filename="$2"
     local token="$3"
@@ -655,8 +653,6 @@ write_files:
 
 }
 
-# Example usage of the function
-
 #generate some mac addresses
 GEN_MAC1=02:$(openssl rand -hex 5 | awk '{print toupper($0)}' | sed 's/\(..\)/\1:/g; s/.$//')
 GEN_MAC2=02:$(openssl rand -hex 5 | awk '{print toupper($0)}' | sed 's/\(..\)/\1:/g; s/.$//')
@@ -664,6 +660,7 @@ GEN_MAC2=02:$(openssl rand -hex 5 | awk '{print toupper($0)}' | sed 's/\(..\)/\1
 #determine the next available ID for a VM
 NEXTID=$(pvesh get /cluster/nextid)
 
+# Configure a temporary directory to work in
 TEMP_DIR=$(mktemp -d)
 pushd $TEMP_DIR >/dev/null
 if whiptail --backtitle "F5 Proxmox install script" --title "F5 XC CE" --yesno "This will create a new F5 XC CE VM. Proceed?" 10 58; then
@@ -672,30 +669,36 @@ else
   header_info && echo -e "⚠ User exited script \n" && exit
 fi
 
+#setup the name for our snippet file 
+SNIPPET_FILE="$VMID.yaml"
+
 snippets_check
 check_root
 arch_check
 pve_check
 ssh_check
 request_token
-prompt_for_input
+prompt_for_image
+
+if [[ "$INPUT_TYPE" == "URL" ]]; then
+  parse_url "$INPUT_VALUE"
+fi
+
 start_script
 
 
 msg_info "Validating Storage for content type: images"
 STORAGE=$(get_storage images)
-msg_ok "Using ${CL}${BL}$STORAGE${CL} ${GN}for Image Storage Location."
-
 select_proxmox_snippets_storage
+
+msg_ok "Using ${CL}${BL}$STORAGE${CL} ${GN}for Image Storage Location."
 msg_ok "Using ${CL}${BL}$SNIP_STOR${CL} ${GN}for Snippet Storage Location."
 
-SNIPPET_FILE="$VMID.yaml"
 create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
 
 msg_ok "Snippet created in directory ${CL}${BL}$SNIP_PATH${CL} named ${CL}${BL}$SNIPPET_FILE${CL}"
-
 msg_ok "Virtual Machine ID is ${CL}${BL}$VMID${CL}."
-msg_info "Retrieving the URL for the F5 Distributed Cloud Customer Edge Disk Image"
+msg_info "Retrieving the Disk Image F5 Distributed Cloud Customer Edge"
 sleep 1
 msg_ok "${CL}${BL}${URL}${CL}"
 
@@ -707,14 +710,14 @@ else
   FILE="$INPUT_VALUE"
 fi
 
-echo -en "\e[1A\e[0K"
-
-msg_ok "Downloaded ${CL}${BL}${FILE}${CL}"
-
-msg_info "Creating an F5 XC CE  VM"
-
 #rename the file to end with ".qcom2" or import will fail
 FILE=$(rename_qcow_file $FILE)
+
+echo -en "\e[1A\e[0K"
+
+msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
+
+msg_info "Creating your F5 XC CE VM"
 
 qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE --net0 virtio,bridge=$BRG1 --scsihw virtio-scsi-single --name $HN --ostype l26 --ipconfig0 ip=dhcp --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE
 
