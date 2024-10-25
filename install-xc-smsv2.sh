@@ -124,8 +124,8 @@ function select_proxmox_snippets_storage() {
         return 1
     fi
 
-    export SNIP_STOR="$selected_storage"
-    export SNIP_PATH="$selected_path"
+    SNIP_STOR="$selected_storage"
+    SNIP_PATH="$selected_path"
 }
 
 # Function to rename file if it ends with ".qcow" to ".qcow2"
@@ -200,9 +200,8 @@ function prompt_for_image() {
     esac
   done
 
-  # Export the variables
-  export INPUT_TYPE="$input_type"
-  export INPUT_VALUE="$selected_input"
+  INPUT_TYPE="$input_type"
+  INPUT_VALUE="$selected_input"
 }
 
 function request_token() {
@@ -212,7 +211,7 @@ function request_token() {
         if [ $? -eq 0 ]; then
             if [ -n "$token" ]; then
                 whiptail --title "Token Provided" --msgbox "Token provided: $token" 10 60
-                export TOKEN="$token"
+                TOKEN="$token"
                 return 0
             else
                 whiptail --title "Error" --msgbox "Error: Token is required to continue." 10 60
@@ -235,9 +234,8 @@ function parse_url() {
   # Extract the URI without the query string and strip the leading "/"
   uribase=$(echo "$url" | sed 's|.*/||; s|\?.*||')
 
-  # Export the variables
-  export URLHOST="$urlhost"
-  export URIFILE="$uribase"
+  URLHOST="$urlhost"
+  URIFILE="$uribase"
 }
 
 
@@ -316,9 +314,7 @@ function exit-script() {
 
 function default_settings() {
   VMID="$NEXTID"
-  FORMAT=",efitype=4m"
   MACHINE="q35"
-  DISK_CACHE=""
   HN="node0"
   CPU_TYPE="host"
   SOCKET=1
@@ -337,7 +333,6 @@ function default_settings() {
   SSHKEYFILE="/root/xc/ssh_pub"
   echo -e "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
   echo -e "${DGN}Using Machine Type: ${BGN}${MACHINE}${CL}"
-  echo -e "${DGN}Using Disk Cache: ${BGN}None${CL}"
   echo -e "${DGN}Using Hostname: ${BGN}${HN}${CL}"
   echo -e "${DGN}Using CPU Model: ${BGN}${CPU_TYPE}${CL}"
   echo -e "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
@@ -437,11 +432,9 @@ function advanced_settings() {
     3>&1 1>&2 2>&3); then
     if [ $MACH = q35 ]; then
       echo -e "${DGN}Using Machine Type: ${BGN}$MACH${CL}"
-      FORMAT=""
       MACHINE="q35"
     else
       echo -e "${DGN}Using Machine Type: ${BGN}$MACH${CL}"
-      FORMAT=""
       MACHINE="i440fx"
     fi
   else
@@ -664,7 +657,6 @@ function check_ipaddr0() {
     
 }
 
-
 function create_cloud_config() {
     local location="$1"
     local filename="$2"
@@ -714,12 +706,14 @@ ssh_check
 request_token
 prompt_for_image
 
+
 if [[ "$INPUT_TYPE" == "URL" ]]; then
   parse_url "$INPUT_VALUE"
 fi
 
 start_script
 
+IPCONFIG0=$(check_ipaddr0)
 
 msg_info "Validating Storage for content type: images"
 STORAGE=$(get_storage images)
@@ -753,13 +747,14 @@ msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
 
 msg_info "Creating your F5 XC CE VM"
 
-IPCONFIG0=$(check_ipaddr0)
-
-echo $IPCONFIG0
-
-qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE --net0 virtio,bridge=$BRG1 --scsihw virtio-scsi-single --name $HN --ostype l26 --ipconfig0 $IPCONFIG0 --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE --sshkeys $SSHKEYFILE
+qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
+  --net0 virtio,bridge=$BRG1 --scsihw virtio-scsi-single --name $HN --ostype l26 \
+  --ipconfig0 $IPCONFIG0 --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
+  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE --sshkeys $SSHKEYFILE
  
-sleep 15
+# pause for 5 seconds to let the system sync
+sleep 5
+# start the VM
 qm start $VMID
 msg_ok "Created a F5 Distributed Cloud Customer Edge VM ${CL}${BL}(${HN})"
 msg_ok "Completed Successfully!\n"
