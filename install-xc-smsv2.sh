@@ -748,7 +748,7 @@ msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
 msg_info "Creating your F5 XC CE VM"
 
 qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
-  --net0 virtio,bridge=$BRG1 --scsihw virtio-scsi-single --name $HN --ostype l26 \
+  --net0 virtio,bridge=$BRG0 --scsihw virtio-scsi-single --name $HN --ostype l26 \
   --ipconfig0 $IPCONFIG0 --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
   --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE --sshkeys $SSHKEYFILE
  
