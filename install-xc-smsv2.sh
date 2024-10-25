@@ -44,6 +44,27 @@ set -e
 trap 'error_handler $LINENO "$BASH_COMMAND"' ERR
 trap cleanup EXIT
 
+#Define some vars
+VMID=""
+MACHINE=""
+HN=""
+CPU_TYPE=""
+SOCKET=""
+CORE_COUNT=""
+RAM_SIZE=""
+BRG0=""
+BRG1=""
+MAC0=""
+MAC1=""
+IPADDR0=""
+IPADDR1=""
+GW=""
+NS=""
+VLAN0=""
+VLAN1=""
+SSHKEYFILE=""
+
+
 #our error handler
 function error_handler() {
   local exit_code="$?"
@@ -127,6 +148,19 @@ function select_proxmox_snippets_storage() {
     SNIP_STOR="$selected_storage"
     SNIP_PATH="$selected_path"
 }
+
+#!/bin/bash
+
+# Function to check if a file exists and is readable
+function is_valid_file() {
+    local file="$1"
+    if [[ -f "$file" && -r "$file" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 
 # Function to rename file if it ends with ".qcow" to ".qcow2"
 function rename_qcow_file() {
@@ -293,6 +327,21 @@ function arch_check() {
   fi
 }
 
+function is_valid_ipv4() {
+    local ip="$1"
+    if [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        IFS='.' read -r -a octets <<< "$ip"
+        for octet in "${octets[@]}"; do
+            if ((octet < 0 || octet > 255)); then
+                return 1
+            fi
+        done
+        return 0
+    else
+        return 1
+    fi
+}
+
 function ssh_check() {
   if command -v pveversion >/dev/null 2>&1; then
     if [ -n "${SSH_CLIENT:+x}" ]; then
@@ -321,35 +370,20 @@ function default_settings() {
   CORE_COUNT="4"
   RAM_SIZE="16384"
   BRG0="vmbr0"
-  BRG1="vmbr1"
-  MAC0="$GEN_MAC1"
-  MAC1="$GEN_MAC2"
-  IPADDR0="192.168.1.244/24"
-  IPADDR1="dhcp"
-  GW=""
-  NS=""
-  VLAN0=""
-  VLAN1=""
-  SSHKEYFILE="/root/xc/ssh_pub"
-  echo -e "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
-  echo -e "${DGN}Using Machine Type: ${BGN}${MACHINE}${CL}"
-  echo -e "${DGN}Using Hostname: ${BGN}${HN}${CL}"
-  echo -e "${DGN}Using CPU Model: ${BGN}${CPU_TYPE}${CL}"
-  echo -e "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
-  echo -e "${DGN}Allocated RAM: ${BGN}${RAM_SIZE}${CL}"
-  echo -e "${DGN}Using Bridge1: ${BGN}${BRG0}${CL}"
-  echo -e "${DGN}Using Bridge 1 MAC Address: ${BGN}${MAC0}${CL}"
-  echo -e "${DGN}Using Bridge 1 VLAN0: ${BGN}Default${CL}"
-  echo -e "${DGN}Using Bridge2: ${BGN}${BRG1}${CL}"
-  echo -e "${DGN}Using Bridge 2 MAC Address: ${BGN}${MAC1}${CL}"
-  echo -e "${DGN}Using Bridge 2 VLAN1: ${BGN}Default${CL}"
-  echo -e "${DGN}Bridge1 IP: ${BGN}${IPADDR0}${CL}"
-  echo -e "${DGN}Bridge2 IP: ${BGN}${IPADDR1}${CL}"
-  echo -e "${DGN}Gateway IP: ${BGN}${GW}${CL}"
-  echo -e "${DGN}Nameserver IP: ${BGN}${NS}${CL}"
-  echo -e "${BL}Creating an F5 Distributed Cloud Customer Edge VM  using the above default settings${CL}"
-  echo -e "${DGN}File Location: ${BGN}$INPUT_TYPE${CL}"
-  echo -e "${DGN}File Path: ${BGN}$INPUT_VALUE${CL}"
+  MAC0="$GEN_MAC0"
+  IPADDR0="dhcp"
+  msg_ok "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
+  msg_ok "${DGN}Using Machine Type: ${BGN}${MACHINE}${CL}"
+  msg_ok "${DGN}Using Hostname: ${BGN}${HN}${CL}"
+  msg_ok "${DGN}Using CPU Model: ${BGN}${CPU_TYPE}${CL}"
+  msg_ok "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
+  msg_ok "${DGN}Allocated RAM: ${BGN}${RAM_SIZE}${CL}"
+  msg_ok "${DGN}Using Bridge: ${BGN}${BRG0}${CL}"
+  msg_ok "${DGN}Using Bridge MAC Address: ${BGN}${MAC0}${CL}"
+  msg_ok "${DGN}IP: ${BGN}${IPADDR0}${CL}"
+  msg_ok "${DGN}File Location: ${BGN}$INPUT_TYPE${CL}"
+  msg_ok "${DGN}File Path: ${BGN}$INPUT_VALUE${CL}"
+  msg_ok "${BL}Creating an F5 Distributed Cloud Customer Edge VM  using the above default settings${CL}"
 }
 
 function advanced_settings() {
@@ -363,67 +397,23 @@ function advanced_settings() {
         sleep 2
         continue
       fi
-      echo -e "${DGN}Virtual Machine ID: ${BGN}$VMID${CL}"
+      msg_ok "${DGN}Virtual Machine ID: ${BGN}$VMID${CL}"
       break
     else
       exit-script
     fi
   done
 
-  while true; do
-    NET=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Static IPv4 CIDR Address (/24)" 8 58 dhcp --title "IP ADDRESS" 3>&1 1>&2 2>&3)
-    exit_status=$?
-    if [ $exit_status -eq 0 ]; then
-      if [ "$NET" = "dhcp" ]; then
-        echo -e "${DGN}Using IP Address: ${BGN}$NET${CL}"
-        break
-      else
-        if [[ "$NET" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$ ]]; then
-          echo -e "${DGN}Using IP Address: ${BGN}$NET${CL}"
-          break
-        else
-          whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "$NET is an invalid IPv4 CIDR address. Please enter a valid IPv4 CIDR address or 'dhcp'" 8 58
-        fi
-      fi
+  if VM_NAME=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set Hostname" 8 58 node0 --title "HOSTNAME" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+    if [ -z $VM_NAME ]; then
+      HN="node0"
+      msg_ok "${DGN}Using Hostname: ${BGN}$HN${CL}"
     else
-      exit-script
+      HN=$(echo ${VM_NAME,,} | tr -d ' ')
+      msg_ok "${DGN}Using Hostname: ${BGN}$HN${CL}"
     fi
-  done
-
-  if [ "$NET" != "dhcp" ]; then
-    while true; do
-      GATE1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Enter gateway IP address" 8 58 --title "Gateway IP" 3>&1 1>&2 2>&3)
-      if [ -z "$GATE1" ]; then
-        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Gateway IP address cannot be empty" 8 58
-      elif [[ ! "$GATE1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Invalid IP address format" 8 58
-      else
-        GATE="$GATE1"
-        echo -e "${DGN}Using Gateway IP Address: ${BGN}$GATE1${CL}"
-        break
-      fi
-    done
   else
-    GATE=""
-    echo -e "${DGN}Using Gateway IP Address: ${BGN}Default${CL}"
-  fi
-
-  if [ "$NET" != "dhcp" ]; then
-    while true; do
-      NS1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Enter Nameserver IP address" 8 58 --title "Nameserver IP" 3>&1 1>&2 2>&3)
-      if [ -z "$NS1" ]; then
-        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Nameserver IP address cannot be empty" 8 58
-      elif [[ ! "$NS1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Invalid IP address format" 8 58
-      else
-        NS="$NS1"
-        echo -e "${DGN}Using Nameserver IP Address: ${BGN}$GATE1${CL}"
-        break
-      fi
-    done
-  else
-    NS="8.8.8.8"
-    echo -e "${DGN}Using Nameserver IP Address: ${BGN}8.8.8.8${CL}"
+    exit-script
   fi
 
   if MACH=$(whiptail --backtitle "F5 Install Script for Proxmox" --title "MACHINE TYPE" --radiolist --cancel-button Exit-Script "Choose Type" 10 58 2 \
@@ -431,37 +421,26 @@ function advanced_settings() {
     "q35" "Machine q35" ON \
     3>&1 1>&2 2>&3); then
     if [ $MACH = q35 ]; then
-      echo -e "${DGN}Using Machine Type: ${BGN}$MACH${CL}"
+      msg_ok "${DGN}Using Machine Type: ${BGN}$MACH${CL}"
       MACHINE="q35"
     else
-      echo -e "${DGN}Using Machine Type: ${BGN}$MACH${CL}"
+      msg_ok "${DGN}Using Machine Type: ${BGN}$MACH${CL}"
       MACHINE="i440fx"
     fi
   else
     exit-script
   fi
 
-  if VM_NAME=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set Hostname" 8 58 node0 --title "HOSTNAME" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
-    if [ -z $VM_NAME ]; then
-      HN="node0"
-      echo -e "${DGN}Using Hostname: ${BGN}$HN${CL}"
-    else
-      HN=$(echo ${VM_NAME,,} | tr -d ' ')
-      echo -e "${DGN}Using Hostname: ${BGN}$HN${CL}"
-    fi
-  else
-    exit-script
-  fi
 
   if CPU_TYPE=$(whiptail --backtitle "F5 Install Script for Proxmox" --title "CPU MODEL" --radiolist "Choose" --cancel-button Exit-Script 10 58 2 \
     "0" "x86-64-v2-AES (Default)" ON \
     "1" "Host" OFF \
     3>&1 1>&2 2>&3); then
     if [ $CPU_TYPE = "1" ]; then
-      echo -e "${DGN}Using CPU Model: ${BGN}host${CL}"
+      msg_ok "${DGN}Using CPU Model: ${BGN}host${CL}"
       CPU_TYPE="host"
     else
-      echo -e "${DGN}Using CPU Model: ${BGN}x86-64-v2-AES${CL}"
+      msg_ok "${DGN}Using CPU Model: ${BGN}x86-64-v2-AES${CL}"
       CPU_TYPE="x86-64-v2-AES"
     fi
   else
@@ -471,9 +450,9 @@ function advanced_settings() {
   if CORE_COUNT=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Allocate CPU Cores" 8 58 8 --title "CORE COUNT (minimum 4)" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $CORE_COUNT ]; then
       CORE_COUNT="4"
-      echo -e "${DGN}Allocated Cores: ${BGN}$CORE_COUNT${CL}"
+      msg_ok "${DGN}Allocated Cores: ${BGN}$CORE_COUNT${CL}"
     else
-      echo -e "${DGN}Allocated Cores: ${BGN}$CORE_COUNT${CL}"
+      msg_ok "${DGN}Allocated Cores: ${BGN}$CORE_COUNT${CL}"
     fi
   else
     exit-script
@@ -482,9 +461,9 @@ function advanced_settings() {
   if RAM_SIZE=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Allocate RAM in MiB" 8 58 16384 --title "RAM (minimum 16GB)" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $RAM_SIZE ]; then
       RAM_SIZE="16384"
-      echo -e "${DGN}Allocated RAM: ${BGN}$RAM_SIZE${CL}"
+      msg_ok "${DGN}Allocated RAM: ${BGN}$RAM_SIZE${CL}"
     else
-      echo -e "${DGN}Allocated RAM: ${BGN}$RAM_SIZE${CL}"
+      msg_ok "${DGN}Allocated RAM: ${BGN}$RAM_SIZE${CL}"
     fi
   else
     exit-script
@@ -493,21 +472,21 @@ function advanced_settings() {
   if BRG0=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $BRG0 ]; then
       BRG0="vmbr0"
-      echo -e "${DGN}Using Bridge: ${BGN}$BRG0${CL}"
+      msg_ok "${DGN}Interface 0 Bridge: ${BGN}$BRG0${CL}"
     else
-      echo -e "${DGN}Using Bridge: ${BGN}$BRG0${CL}"
+      msg_ok "${DGN}Interface 0 Bridge: ${BGN}$BRG0${CL}"
     fi
   else
     exit-script
   fi
 
-  if MAC0=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 1 MAC Address" 8 58 $GEN_MAC1 --title "Bridge 1 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if MAC0=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 1 MAC Address" 8 58 $GEN_MAC0 --title "Bridge 1 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $MAC0 ]; then
-      MAC0="$GEN_MAC1"
-      echo -e "${DGN}Using MAC Address: ${BGN}$MAC0${CL}"
+      MAC0="$GEN_MAC0"
+      msg_ok "${DGN}Interface 0 MAC Address: ${BGN}$MAC0${CL}"
     else
-      MAC0="$MAC1"
-      echo -e "${DGN}Using MAC Address: ${BGN}$MAC0${CL}"
+      MAC0="$MAC0"
+      msg_ok "${DGN}Interface 0 MAC Address: ${BGN}$MAC0${CL}"
     fi
   else
     exit-script
@@ -517,63 +496,188 @@ function advanced_settings() {
     if [ -z $VLAN0 ]; then
       VLAN0="Default"
       VLAN0=""
-      echo -e "${DGN}Using Vlan: ${BGN}$VLAN0${CL}"
+      msg_ok "${DGN}Interface 0 Vlan: ${BGN}$VLAN0${CL}"
     else
-      VLAN0=",tag=$VLAN1"
-      echo -e "${DGN}Using Vlan: ${BGN}$VLAN0${CL}"
+      VLAN0="$VLAN0"
+      msg_ok "${DGN}Interface 0 Vlan: ${BGN}$VLAN0${CL}"
     fi
   else
     exit-script
   fi
 
-  if BRG1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
-    if [ -z $BRG1 ]; then
-      BRG1="vmbr1"
-      echo -e "${DGN}Using Bridge: ${BGN}$BRG1${CL}"
+  while true; do
+    IPADDR0=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Static IPv4 CIDR Address (/24)" 8 58 dhcp --title "IP ADDRESS" 3>&1 1>&2 2>&3)
+    exit_status=$?
+    if [ $exit_status -eq 0 ]; then
+      if [ "$IPADDR0" = "dhcp" ]; then
+        msg_ok "${DGN}IP Address for interface 0: ${BGN}$IPADDR0${CL}"
+        break
+      else
+        if [[ "$IPADDR0" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$ ]]; then
+          msg_ok "${DGN}IP Address for interface 0: ${BGN}$IPADDR0${CL}"
+          break
+        else
+          whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "$IPADDR0 is an invalid IPv4 CIDR address. Please enter a valid IPv4 CIDR address or 'dhcp'" 8 58
+        fi
+      fi
     else
-      echo -e "${DGN}Using Bridge: ${BGN}$BRG1${CL}"
+      exit-script
     fi
+  done
+
+  if [ "$IPADDR0" != "dhcp" ]; then
+    while true; do
+      GATE1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Enter gateway IP address" 8 58 --title "Gateway IP" 3>&1 1>&2 2>&3)
+      if [ -z "$GATE1" ]; then
+        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Gateway IP address cannot be empty" 8 58
+      elif [[ ! "$GATE1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Invalid IP address format" 8 58
+      else
+        GW="$GATE1"
+        msg_ok "${DGN}Using Gateway IP Address: ${BGN}$GW${CL}"
+        break
+      fi
+    done
   else
-    exit-script
+    GW=""
+    msg_ok "${DGN}Using Gateway IP Address: ${BGN}Default${CL}"
   fi
 
-  if MAC1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 2 MAC Address" 8 58 $GEN_MAC2 --title "Bridge 2 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
-    if [ -z $MAC1 ]; then
-      MAC1="$GEN_MAC2"
-      echo -e "${DGN}Using MAC Address: ${BGN}$MAC1${CL}"
-    else
-      MAC1="$MAC2"
-      echo -e "${DGN}Using MAC Address: ${BGN}$MAC1${CL}"
-    fi
+  if [ "$IPADDR0" != "dhcp" ]; then
+    while true; do
+      NS1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Enter Nameserver IP address" 8 58 --title "Nameserver IP" 3>&1 1>&2 2>&3)
+      if [ -z "$NS1" ]; then
+        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Nameserver IP address cannot be empty" 8 58
+      elif [[ ! "$NS1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "Invalid IP address format" 8 58
+      else
+        NS="--nameserver $NS1"
+        msg_ok"${DGN}Using Nameserver IP Address: ${BGN}$NS${CL}"
+        break
+      fi
+    done
   else
-    exit-script
+    NS=""
   fi
 
-  if VLAN1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Vlan for bridge 2(leave blank for default)" 8 58 --title "VLAN Bridge 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
-    if [ -z $VLAN1 ]; then
-      VLAN1="Default"
-      VLAN1=""
-      echo -e "${DGN}Using Vlan: ${BGN}$VLAN1${CL}"
+  if whiptail --backtitle "F5 Install Script for Proxmox" --defaultno --title "Second interface" --yesno "Would you like to configure a second interface?" 10 60; then
+
+    if BRG1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr1 --title "BRIDGE 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+      if [ -z $BRG1 ]; then
+        BRG1="vmbr1"
+        msg_ok "${DGN}Interface 1 Bridge: ${BGN}$BRG1${CL}"
+      else
+        msg_ok "${DGN}Interface 1 Bridge: ${BGN}$BRG1${CL}"
+      fi
     else
-      VLAN1=",tag=$VLAN2"
-      echo -e "${DGN}Using Vlan: ${BGN}$VLAN1${CL}"
+      exit-script
     fi
+
+    if MAC1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 2 MAC Address" 8 58 $GEN_MAC1 --title "Bridge 2 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+      if [ -z $MAC1 ]; then
+        MAC1="$GEN_MAC1"
+        msg_ok "${DGN}Interface 1 MAC Address: ${BGN}$MAC1${CL}"
+      else
+        MAC1="$MAC1"
+        msg_ok "${DGN}Interface 1 MAC Address: ${BGN}$MAC1${CL}"
+      fi
+    else
+      exit-script
+    fi
+
+    if VLAN1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Vlan for bridge 2(leave blank for default)" 8 58 --title "VLAN Bridge 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+      if [ -z $VLAN1 ]; then
+        VLAN1="Default"
+        VLAN1=""
+        msg_ok "${DGN}Interface 1 Vlan: ${BGN}$VLAN1${CL}"
+      else
+        VLAN1="$VLAN1"
+        msg_ok "${DGN}Interface 1 Vlan: ${BGN}$VLAN1${CL}"
+      fi
+    else
+      exit-script
+    fi
+
+    while true; do
+      IPADDR1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Static IPv4 CIDR Address (/24)" 8 58 dhcp --title "IP ADDRESS" 3>&1 1>&2 2>&3)
+      exit_status=$?
+      if [ $exit_status -eq 0 ]; then
+        if [ "$IPADDR0" = "dhcp" ]; then
+          msg_ok "${DGN}IP Address for interface 1: ${BGN}$IPADDR0${CL}"
+          break
+        else
+          if [[ "$IPADDR0" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$ ]]; then
+            msg_ok "${DGN}IP Address for interface 1: ${BGN}$IPADDR0${CL}"
+            break
+          else
+            whiptail --backtitle "F5 Install Script for Proxmox" --msgbox "$IPADDR0 is an invalid IPv4 CIDR address. Please enter a valid IPv4 CIDR address or 'dhcp'" 8 58
+          fi
+        fi
+      else
+        exit-script
+      fi
+    done
   else
-    exit-script
+    BRG1=""
+    MAC1=""
+    VLAN1=""
+    IPADDR1="dhcp"
   fi
+ 
+  if [ -z "${NS}" ]; then
+    if whiptail --backtitle "F5 Install Script for Proxmox" --defaultno --title "Define Nameserver" --yesno "Do you want to define a Nameserver?" 10 60; then
+        while true; do
+            NS1=$(whiptail --inputbox "Enter the Nameserver IP address:" 10 60 3>&1 1>&2 2>&3)
+            exitstatus=$?
+            if [ $exitstatus = 0 ]; then
+                if is_valid_ipv4 "$NS"; then
+                    NS="--nameserver $NS1"
+                    msg_ok "Nameserver set to: ${DGN}NameServer: ${BGN}$NS1${CL}"
+                    break
+                else
+                    whiptail --msgbox "Invalid IPv4 address. Please enter a valid IP address." 10 60
+                fi
+            else
+                NS=""
+                break
+            fi
+        done
+    else
+        NS=""
+    fi
+  fi
+
+  if whiptail --backtitle "F5 Install Script for Proxmox" --defaultno --title "Include SSH Public Keys" --yesno "Do you want to define a file location for SSH public keys to include?" 10 60; then
+      while true; do
+          SSHKEYFILE1=$(whiptail --inputbox "Enter the full path to the SSH public key file:" 10 60 3>&1 1>&2 2>&3)
+          exitstatus=$?
+          if [ $exitstatus = 0 ]; then
+              if is_valid_file "$SSHKEYFILE1"; then
+                  SSHKEYFILE="--sshkeys $SSHKEYFILE1"
+                  msg_ok "SSH key file  set to: ${DGN}KeyFile: ${BGN}$SSHKEYFILE1${CL}"
+                  break
+              else
+                  whiptail --msgbox "Invalid file. The file does not exist or is not readable. Please enter a valid file path." 10 60
+              fi
+          else
+              SSHKEYFILE=""
+              break
+          fi
+      done
+  else
+      SSHKEYFILE=""
+  fi
+
 
   if (whiptail --backtitle "F5 Install Script for Proxmox" --title "ADVANCED SETTINGS COMPLETE" --yesno "Ready to create an XC CE  VM?" --no-button Do-Over 10 58); then
-    echo -e "${RD}Creating an F5 Distributed Cloud Customer Edge VM using the above advanced settings${CL}"
+    msg_info "${RD}Creating an F5 Distributed Cloud Customer Edge VM using the above advanced settings${CL}"
   else
     header_info
     echo -e "${RD}Using Advanced Settings${CL}"
     advanced_settings
   fi
 
-  IPADDR0=$NET
-  GW=$GATE
   SOCKET="1"
-
 
 }
 
@@ -623,6 +727,54 @@ function get_storage() {
     fi 
 
     echo "$mySTORAGE"
+}
+
+function configure_net0() {
+    # Ensure BRG0 and MAC0 are defined
+    if [ -z "$BRG0" ] || [ -z "$MAC0" ]; then
+        echo "Error: BRG0 and MAC0 must be defined."
+        return 1
+    fi
+
+    # Check if VLAN0 is defined and is an integer between 1 and 4094
+    if [[ -n "$VLAN0" && "$VLAN0" =~ ^[0-9]+$ && "$VLAN0" -ge 1 && "$VLAN0" -le 4094 ]]; then
+        result="bridge=$BRG0,macaddr=$MAC0,tag=$VLAN0"
+    else
+        result="bridge=$BRG0,macaddr=$MAC0"
+    fi
+
+    echo "$result"
+}
+
+function configure_net1() {
+    local variable=""
+
+    # Check if $IPADDR1 is defined and is a valid IPv4 address in CIDR format
+    if [[ "${IPADDR1}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$ ]]; then
+        ip_valid=true
+    else
+        ip_valid=false
+    fi
+
+    # Check if $VLAN1 is set, not empty, and is an integer between 1 and 4094
+    if [[ -n "${VLAN1}" && "${VLAN1}" =~ ^[0-9]+$ && "${VLAN1}" -ge 1 && "${VLAN1}" -le 4094 ]]; then
+        vlan_valid=true
+    else
+        vlan_valid=false
+    fi
+
+    # Set the variable based on the conditions
+    if $ip_valid && $vlan_valid; then
+        variable="--net1 virtio,bridge=${BRG1},macaddr=${MAC1},tag=${VLAN1} --ipconfig1 ip=${IPADDR1}"
+    elif $ip_valid; then
+        variable="--net1 virtio,bridge=${BRG1},macaddr=${MAC1} --ipconfig1 ip=${IPADDR1}"
+    elif $vlan_valid; then
+        variable="--net1 virtio,bridge=${BRG1},macaddr=${MAC1},tag=${VLAN1} --ipconfig1 ip=dhcp"
+    else
+        variable="--net1 virtio,bridge=${BRG1},macaddr=${MAC1} --ipconfig1 ip=dhcp"
+    fi
+
+    echo "${variable}"
 }
 
 function config_ipaddr0() {
@@ -696,7 +848,6 @@ else
 fi
 
 #setup the name for our snippet file 
-SNIPPET_FILE="$VMID.yaml"
 
 snippets_check
 check_root
@@ -706,22 +857,33 @@ ssh_check
 request_token
 prompt_for_image
 
-
 if [[ "$INPUT_TYPE" == "URL" ]]; then
   parse_url "$INPUT_VALUE"
 fi
 
 start_script
 
+SNIPPET_FILE="$VMID.yaml"
+
 # build configuration for the --ipconfig0 option
 IPCONFIG0=$(config_ipaddr0)
+
+#configure our network  options
+NET0=$(configure_net0)
+
+# Check if $BRG1 is set as that measn we are defining a second interface
+if [ -z "${BRG1}" ]; then
+  NET1=""
+else
+  NET1=$(configure_net1)
+fi
 
 msg_info "Validating Storage for content type: images"
 STORAGE=$(get_storage images)
 select_proxmox_snippets_storage
 
-msg_ok "Using ${CL}${BL}$STORAGE${CL} ${GN}for Image Storage Location."
-msg_ok "Using ${CL}${BL}$SNIP_STOR${CL} ${GN}for Snippet Storage Location."
+msg_ok "VM Image will be store in: ${CL}${BL}$STORAGE${CL} ${GN}"
+msg_ok "Cloud-Init snippets for the CE will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
 
 create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
 
@@ -748,14 +910,18 @@ msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
 
 msg_info "Creating your F5 XC CE VM"
 
-qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
-  --net0 virtio,bridge=$BRG0 --scsihw virtio-scsi-single --name $HN --ostype l26 \
-  --ipconfig0 $IPCONFIG0 --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
-  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE --sshkeys $SSHKEYFILE
+#qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
+#  --net0 virtio,$NET0 $NET1 --scsihw virtio-scsi-single --name $HN --ostype l26 \
+#  --ipconfig0 $IPCONFIG0 --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
+#  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE --sshkeys $SSHKEYFILE
  
+echo "qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
+  --net0 virtio,$NET0 --ipconfig0 $IPCONFIG0 $NET1 --scsihw virtio-scsi-single --name $HN --ostype l26 \
+  --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
+  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE $NS $SSHKEYFILE"
 # pause for 5 seconds to let the system sync
-sleep 5
+#sleep 5
 # start the VM
-qm start $VMID
+#qm start $VMID
 msg_ok "Created a F5 Distributed Cloud Customer Edge VM ${CL}${BL}(${HN})"
 msg_ok "Completed Successfully!\n"
