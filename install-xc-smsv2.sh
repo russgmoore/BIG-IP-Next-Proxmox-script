@@ -910,15 +910,11 @@ msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
 
 msg_info "Creating your F5 XC CE VM"
 
-#qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
-#  --net0 virtio,$NET0 $NET1 --scsihw virtio-scsi-single --name $HN --ostype l26 \
-#  --ipconfig0 $IPCONFIG0 --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
-#  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE --sshkeys $SSHKEYFILE
- 
-echo "qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
+qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
   --net0 virtio,$NET0 --ipconfig0 $IPCONFIG0 $NET1 --scsihw virtio-scsi-single --name $HN --ostype l26 \
   --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
-  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE $NS $SSHKEYFILE"
+  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE $NS $SSHKEYFILE
+
 # pause for 5 seconds to let the system sync
 #sleep 5
 # start the VM
