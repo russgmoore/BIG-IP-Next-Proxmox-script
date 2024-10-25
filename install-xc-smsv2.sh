@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# substantial parts of this script were taken from:
+# parts of this script were taken from:
 # Copyright (c) 2021-2024 tteck
 # Author: tteck (tteckster)
 # License: MIT
@@ -324,16 +324,17 @@ function default_settings() {
   SOCKET=1
   CORE_COUNT="4"
   RAM_SIZE="16384"
-  BRG1="vmbr0"
-  BRG2="vmbr1"
-  MAC1="$GEN_MAC1"
-  MAC2="$GEN_MAC2"
-  IPADDR1="192.168.1.234/24"
-  IPADDR2="10.10.10.10/24"
+  BRG0="vmbr0"
+  BRG1="vmbr1"
+  MAC0="$GEN_MAC1"
+  MAC1="$GEN_MAC2"
+  IPADDR0="192.168.1.244/24"
+  IPADDR1="dhcp"
   GW="192.168.1.2"
-  NS="192.168.1.2"
+  NS=""
+  VLAN0=""
   VLAN1=""
-  VLAN2=""
+  SSHKEYFILE="/root/xc/ssh_pub"
   echo -e "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
   echo -e "${DGN}Using Machine Type: ${BGN}${MACHINE}${CL}"
   echo -e "${DGN}Using Disk Cache: ${BGN}None${CL}"
@@ -341,14 +342,14 @@ function default_settings() {
   echo -e "${DGN}Using CPU Model: ${BGN}${CPU_TYPE}${CL}"
   echo -e "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
   echo -e "${DGN}Allocated RAM: ${BGN}${RAM_SIZE}${CL}"
-  echo -e "${DGN}Using Bridge1: ${BGN}${BRG1}${CL}"
-  echo -e "${DGN}Using Bridge 1 MAC Address: ${BGN}${MAC1}${CL}"
-  echo -e "${DGN}Using Bridge 1 VLAN1: ${BGN}Default${CL}"
-  echo -e "${DGN}Using Bridge2: ${BGN}${BRG2}${CL}"
-  echo -e "${DGN}Using Bridge 2 MAC Address: ${BGN}${MAC2}${CL}"
-  echo -e "${DGN}Using Bridge 2 VLAN2: ${BGN}Default${CL}"
-  echo -e "${DGN}Bridge1 IP: ${BGN}${IPADDR1}${CL}"
-  echo -e "${DGN}Bridge2 IP: ${BGN}${IPADDR2}${CL}"
+  echo -e "${DGN}Using Bridge1: ${BGN}${BRG0}${CL}"
+  echo -e "${DGN}Using Bridge 1 MAC Address: ${BGN}${MAC0}${CL}"
+  echo -e "${DGN}Using Bridge 1 VLAN0: ${BGN}Default${CL}"
+  echo -e "${DGN}Using Bridge2: ${BGN}${BRG1}${CL}"
+  echo -e "${DGN}Using Bridge 2 MAC Address: ${BGN}${MAC1}${CL}"
+  echo -e "${DGN}Using Bridge 2 VLAN1: ${BGN}Default${CL}"
+  echo -e "${DGN}Bridge1 IP: ${BGN}${IPADDR0}${CL}"
+  echo -e "${DGN}Bridge2 IP: ${BGN}${IPADDR1}${CL}"
   echo -e "${DGN}Gateway IP: ${BGN}${GW}${CL}"
   echo -e "${DGN}Nameserver IP: ${BGN}${NS}${CL}"
   echo -e "${BL}Creating an F5 Distributed Cloud Customer Edge VM  using the above default settings${CL}"
@@ -496,9 +497,45 @@ function advanced_settings() {
     exit-script
   fi
 
-  if BRG1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if BRG0=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+    if [ -z $BRG0 ]; then
+      BRG0="vmbr0"
+      echo -e "${DGN}Using Bridge: ${BGN}$BRG0${CL}"
+    else
+      echo -e "${DGN}Using Bridge: ${BGN}$BRG0${CL}"
+    fi
+  else
+    exit-script
+  fi
+
+  if MAC0=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 1 MAC Address" 8 58 $GEN_MAC1 --title "Bridge 1 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+    if [ -z $MAC0 ]; then
+      MAC0="$GEN_MAC1"
+      echo -e "${DGN}Using MAC Address: ${BGN}$MAC0${CL}"
+    else
+      MAC0="$MAC1"
+      echo -e "${DGN}Using MAC Address: ${BGN}$MAC0${CL}"
+    fi
+  else
+    exit-script
+  fi
+
+  if VLAN0=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Vlan for bridge 1(leave blank for default)" 8 58 --title "VLAN Bridge 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+    if [ -z $VLAN0 ]; then
+      VLAN0="Default"
+      VLAN0=""
+      echo -e "${DGN}Using Vlan: ${BGN}$VLAN0${CL}"
+    else
+      VLAN0=",tag=$VLAN1"
+      echo -e "${DGN}Using Vlan: ${BGN}$VLAN0${CL}"
+    fi
+  else
+    exit-script
+  fi
+
+  if BRG1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $BRG1 ]; then
-      BRG1="vmbr0"
+      BRG1="vmbr1"
       echo -e "${DGN}Using Bridge: ${BGN}$BRG1${CL}"
     else
       echo -e "${DGN}Using Bridge: ${BGN}$BRG1${CL}"
@@ -507,62 +544,26 @@ function advanced_settings() {
     exit-script
   fi
 
-  if MAC1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 1 MAC Address" 8 58 $GEN_MAC1 --title "Bridge 1 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if MAC1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 2 MAC Address" 8 58 $GEN_MAC2 --title "Bridge 2 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $MAC1 ]; then
-      MAC1="$GEN_MAC1"
+      MAC1="$GEN_MAC2"
       echo -e "${DGN}Using MAC Address: ${BGN}$MAC1${CL}"
     else
-      MAC1="$MAC1"
+      MAC1="$MAC2"
       echo -e "${DGN}Using MAC Address: ${BGN}$MAC1${CL}"
     fi
   else
     exit-script
   fi
 
-  if VLAN1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Vlan for bridge 1(leave blank for default)" 8 58 --title "VLAN Bridge 1" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+  if VLAN1=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Vlan for bridge 2(leave blank for default)" 8 58 --title "VLAN Bridge 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
     if [ -z $VLAN1 ]; then
       VLAN1="Default"
       VLAN1=""
       echo -e "${DGN}Using Vlan: ${BGN}$VLAN1${CL}"
     else
-      VLAN1=",tag=$VLAN1"
+      VLAN1=",tag=$VLAN2"
       echo -e "${DGN}Using Vlan: ${BGN}$VLAN1${CL}"
-    fi
-  else
-    exit-script
-  fi
-
-  if BRG2=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge" 8 58 vmbr0 --title "BRIDGE 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
-    if [ -z $BRG2 ]; then
-      BRG2="vmbr1"
-      echo -e "${DGN}Using Bridge: ${BGN}$BRG2${CL}"
-    else
-      echo -e "${DGN}Using Bridge: ${BGN}$BRG2${CL}"
-    fi
-  else
-    exit-script
-  fi
-
-  if MAC2=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Bridge 2 MAC Address" 8 58 $GEN_MAC2 --title "Bridge 2 MAC ADDRESS" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
-    if [ -z $MAC2 ]; then
-      MAC2="$GEN_MAC2"
-      echo -e "${DGN}Using MAC Address: ${BGN}$MAC2${CL}"
-    else
-      MAC2="$MAC2"
-      echo -e "${DGN}Using MAC Address: ${BGN}$MAC2${CL}"
-    fi
-  else
-    exit-script
-  fi
-
-  if VLAN2=$(whiptail --backtitle "F5 Install Script for Proxmox" --inputbox "Set a Vlan for bridge 2(leave blank for default)" 8 58 --title "VLAN Bridge 2" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
-    if [ -z $VLAN2 ]; then
-      VLAN2="Default"
-      VLAN2=""
-      echo -e "${DGN}Using Vlan: ${BGN}$VLAN2${CL}"
-    else
-      VLAN2=",tag=$VLAN2"
-      echo -e "${DGN}Using Vlan: ${BGN}$VLAN2${CL}"
     fi
   else
     exit-script
@@ -576,7 +577,7 @@ function advanced_settings() {
     advanced_settings
   fi
 
-  IPADDR1=$NET
+  IPADDR0=$NET
   GW=$GATE
   SOCKET="1"
 
@@ -631,6 +632,39 @@ function get_storage() {
     echo "$mySTORAGE"
 }
 
+function check_ipaddr0() {
+    # Check if IPADDR0 is defined
+    if [ -z "${IPADDR0+x}" ]; then
+        echo "IPADDR0 is not defined globally."
+        return 1
+    fi
+
+    # Initialize the variable
+    ip_variable=""
+
+    # Check if IPADDR0 is "dhcp" or empty
+    if [ "$IPADDR0" = "dhcp" ] || [ -z "$IPADDR0" ]; then
+        ip_variable="ip=dhcp"
+    else
+        # Check if IPADDR0 is in CIDR notation
+        if [[ "$IPADDR0" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?$ ]]; then
+            ip_variable="ip=$IPADDR0"
+            # Check if GW is defined and is a valid IP address
+            if [ -n "${GW+x}" ] && [[ "$GW" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+                ip_variable+=",gw=$GW"
+            fi
+        else
+            echo "IPADDR0 is defined but not in CIDR notation."
+            return 1
+        fi
+    fi
+
+    # Output the result
+    echo "$ip_variable"
+    
+}
+
+
 function create_cloud_config() {
     local location="$1"
     local filename="$2"
@@ -654,8 +688,8 @@ write_files:
 }
 
 #generate some mac addresses
+GEN_MAC0=02:$(openssl rand -hex 5 | awk '{print toupper($0)}' | sed 's/\(..\)/\1:/g; s/.$//')
 GEN_MAC1=02:$(openssl rand -hex 5 | awk '{print toupper($0)}' | sed 's/\(..\)/\1:/g; s/.$//')
-GEN_MAC2=02:$(openssl rand -hex 5 | awk '{print toupper($0)}' | sed 's/\(..\)/\1:/g; s/.$//')
 
 #determine the next available ID for a VM
 NEXTID=$(pvesh get /cluster/nextid)
@@ -719,7 +753,12 @@ msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
 
 msg_info "Creating your F5 XC CE VM"
 
-qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE --net0 virtio,bridge=$BRG1 --scsihw virtio-scsi-single --name $HN --ostype l26 --ipconfig0 ip=dhcp --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE
+IPCONFIG0=$(check_ipaddr0)
+
+echo $IPCONFIG0
+
+qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE --net0 virtio,bridge=$BRG1 --scsihw virtio-scsi-single --name $HN --ostype l26 --ipconfig0 $IPCONFIG0 --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE --sshkeys $SSHKEYFILE
+ 
 sleep 15
 qm start $VMID
 msg_ok "Created a F5 Distributed Cloud Customer Edge VM ${CL}${BL}(${HN})"
