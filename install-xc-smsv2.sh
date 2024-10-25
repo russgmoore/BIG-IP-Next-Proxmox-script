@@ -326,7 +326,7 @@ function default_settings() {
   MAC1="$GEN_MAC2"
   IPADDR0="192.168.1.244/24"
   IPADDR1="dhcp"
-  GW="192.168.1.2"
+  GW=""
   NS=""
   VLAN0=""
   VLAN1=""
@@ -625,7 +625,7 @@ function get_storage() {
     echo "$mySTORAGE"
 }
 
-function check_ipaddr0() {
+function config_ipaddr0() {
     # Check if IPADDR0 is defined
     if [ -z "${IPADDR0+x}" ]; then
         echo "IPADDR0 is not defined globally."
@@ -713,7 +713,8 @@ fi
 
 start_script
 
-IPCONFIG0=$(check_ipaddr0)
+# build configuration for the --ipconfig0 option
+IPCONFIG0=$(config_ipaddr0)
 
 msg_info "Validating Storage for content type: images"
 STORAGE=$(get_storage images)
