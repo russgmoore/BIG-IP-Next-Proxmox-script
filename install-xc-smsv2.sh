@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 
-# parts of this script were taken from:
-# Copyright (c) 2021-2024 tteck
-# Author: tteck (tteckster)
-# License: MIT
-# https://github.com/tteck/Proxmox/raw/main/LICENSE
-# all other content Copyright (c) 2024
 # Author: Russell Moore
+# Author: tteck (tteckster)
+# Copyright (c) 2021-2024 tteck
+# all other content Copyright (c) 2024
 # LicenseL MIT
 # https://github.com/russgmoore/F5-Proxmox-Scripts 
+# https://github.com/tteck/Proxmox/raw/main/LICENSE
 
 # a nice header to show during build
 function header_info {
@@ -87,69 +85,65 @@ function cleanup() {
   rm -rf $TEMP_DIR
 }
 
-function select_proxmox_snippets_storage() {
-    local storage_cfg="/etc/pve/storage.cfg"
-    local storages=()
-    local paths=()
-    local current_storage=""
-    local current_path=""
 
-    if [[ ! -f "$storage_cfg" ]]; then
-        msg_error "Error: $storage_cfg file not found!"
-        return 1
-    fi
+# Function to parse the storage.cfg file and present items with "snippets" content
+function select_snippets_storage() {
+    # Declare an array to hold the storage information
+    declare -a storage_items
 
-    # Read the storage items and their content lines
+    # Read the /etc/pve/storage.cfg file
     while IFS= read -r line; do
-        if [[ ! "$line" =~ ^[[:space:]] ]] && [[ -n "$line" ]]; then
-            current_storage=$(echo "$line" | cut -d':' -f2 | xargs)
-        elif [[ "$line" =~ snippets ]]; then
-            storages+=("$current_storage")
-        elif [[ "$line" =~ ^[[:space:]]+path ]]; then
-            current_path=$(echo "$line" | cut -d' ' -f2 | xargs)
-            paths+=("$current_path")
+        # Check if the line starts with non-whitespace (new stanza)
+        if [[ ! $line =~ ^\s && $line =~ ^[^:]+:[[:space:]]*([^[:space:]]+) ]]; then
+            # Extract the name from the second field
+            stanza_name=$(echo "$line" | awk '{print $2}')
+
+            # Look for the path line in the subsequent lines
+            while IFS= read -r line; do
+                # Check for the path line that starts with whitespace
+                if [[ $line =~ ^[[:space:]]+path ]]; then
+                    stanza_path=$(echo "$line" | awk '{print $2}')
+                # if the stanza has a content type of snippets then store this item in the array
+                elif [[ $line =~ ^[[:space:]]+content && $line =~ snippets ]]; then
+                    # Store the name and path in the array
+                    storage_items+=("$stanza_name:$stanza_path/snippets" "Storage Name: $stanza_name" "OFF")
+                    break  # Exit the inner loop after finding the path
+                elif [[ ! $line =~ ^\s ]]; then
+                    # If a new stanza starts, break out of the inner loop
+                    break
+                fi
+            done
         fi
-    done < "$storage_cfg"
+    done < /etc/pve/storage.cfg
 
-    if [[ ${#storages[@]} -eq 0 ]]; then
-        msg_error "Error: No storage items with 'snippets' content found."
-        return 1
+    # Present the array as a radio list selection with whiptail
+    if [ ${#storage_items[@]} -eq 0 ]; then
+        echo "No storage items found."
+        return
     fi
 
-    # Create a whiptail radiolist
-    local options=()
-    for i in "${!storages[@]}"; do
-        options+=("${storages[i]}" "${paths[i]}/snippets" "OFF")
-    done
+    # Loop until a valid selection is made
+    while true; do
+        selected_item=$(whiptail --title "Select Storage Item" --radiolist \
+           "Choose a place to store our snippets content:" 15 60 4 "${storage_items[@]}" 3>&1 1>&2 2>&3)
 
-    local choice=$(whiptail --title "Select Proxmox Snippet Storage" --radiolist "Choose a 'snippets' storage location:" 15 60 4 "${options[@]}" 3>&1 1>&2 2>&3)
-
-    if [[ $? -ne 0 ]]; then
-        echo "No selection made."
-        return 1
-    fi
-
-    # Find the selected storage and path
-    local selected_storage="$choice"
-    local selected_path=""
-    for i in "${!storages[@]}"; do
-        if [[ "${storages[i]}" == "$selected_storage" ]]; then
-            selected_path="${paths[i]}/snippets"
+        # Check exit status of whiptail
+        exit_status=$?
+        if [ $exit_status = 0 ]; then
+            # Split the selected item into name and path
+            selected_name="${selected_item%%:*}"
+            selected_path="${selected_item##*:}"
+            break  # Exit the loop on valid selection
+        else
+            echo "Operation canceled."
             break
         fi
     done
 
-    # Validate that the snippets directory exists
-    if [[ ! -d "$selected_path" ]]; then
-        msg_error "Error: The directory $selected_path does not exist!"
-        return 1
-    fi
 
-    SNIP_STOR="$selected_storage"
+    SNIP_STOR="$selected_name"
     SNIP_PATH="$selected_path"
 }
-
-#!/bin/bash
 
 # Function to check if a file exists and is readable
 function is_valid_file() {
@@ -880,7 +874,7 @@ fi
 
 msg_info "Validating Storage for content type: images"
 STORAGE=$(get_storage images)
-select_proxmox_snippets_storage
+select_snippets_storage
 
 msg_ok "VM Image will be store in: ${CL}${BL}$STORAGE${CL} ${GN}"
 msg_ok "Cloud-Init snippets for the CE will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
@@ -910,6 +904,7 @@ msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
 
 msg_info "Creating your F5 XC CE VM"
 
+ 
 qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
   --net0 virtio,$NET0 --ipconfig0 $IPCONFIG0 $NET1 --scsihw virtio-scsi-single --name $HN --ostype l26 \
   --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
