@@ -12,12 +12,12 @@
 function header_info {
   clear
   cat <<"EOF"
-__   _______       _____  _____       ________  ___ _____        _____ 
-\ \ / /  __ \     /  __ \|  ___|     /  ___|  \/  |/  ___|      / __  \
- \ V /| /  \/_____| /  \/| |__ ______\ `--.| .  . |\ `--.__   __`' / /'
- /   \| |  |______| |    |  __|______|`--. \ |\/| | `--. \ \ / /  / /  
-/ /^\ \ \__/\     | \__/\| |___      /\__/ / |  | |/\__/ /\ V / ./ /___
-\/   \/\____/      \____/\____/      \____/\_|  |_/\____/  \_/  \_____/
+______ _____  ______ _____ _____     ___________   _   _           _     _____ ___  ___
+|  ___|  ___| | ___ \_   _|  __ \   |_   _| ___ \ | \ | |         | |   /  __ \|  \/  |
+| |_  |___ \  | |_/ / | | | |  \/_____| | | |_/ / |  \| | _____  _| |_  | /  \/| .  . |
+|  _|     \ \ | ___ \ | | | | _|______| | |  __/  | . ` |/ _ \ \/ / __| | |    | |\/| |
+| |   /\__/ / | |_/ /_| |_| |_\ \    _| |_| |     | |\  |  __/>  <| |_  | \__/\| |  | |
+\_|   \____/  \____/ \___/ \____/    \___/\_|     \_| \_/\___/_/\_\\__|  \____/\_|  |_/
                                                                        
 EOF
 }
@@ -836,7 +836,7 @@ NEXTID=$(pvesh get /cluster/nextid)
 # Configure a temporary directory to work in
 TEMP_DIR=$(mktemp -d)
 pushd $TEMP_DIR >/dev/null
-if whiptail --backtitle "F5 Install Script for Proxmox" --title "$PRODUCT" --yesno "This will create a new F5 XC CE VM. Proceed?" 10 58; then
+if whiptail --backtitle "F5 Install Script for Proxmox" --title "$PRODUCT" --yesno "This will create a new $PRODUCT. Proceed?" 10 58; then
   :
 else
   header_info && echo -e "⚠ User exited script \n" && exit
@@ -880,7 +880,7 @@ STORAGE=$(get_storage images)
 msg_ok "VM Image will be store in: ${CL}${BL}$STORAGE${CL} ${GN}"
 #msg_ok "Cloud-Init snippets for the $PRODUCT  will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
 
-create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
+#create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
 
 msg_ok "Snippet created in directory ${CL}${BL}$SNIP_PATH${CL} named ${CL}${BL}$SNIPPET_FILE${CL}"
 msg_ok "Virtual Machine ID is ${CL}${BL}$VMID${CL}."
