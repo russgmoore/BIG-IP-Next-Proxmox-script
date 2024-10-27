@@ -61,6 +61,7 @@ NS=""
 VLAN0=""
 VLAN1=""
 SSHKEYFILE=""
+PRODUCT="F5 BIG-IP NEXT CM"
 
 
 #our error handler
@@ -339,7 +340,7 @@ function is_valid_ipv4() {
 function ssh_check() {
   if command -v pveversion >/dev/null 2>&1; then
     if [ -n "${SSH_CLIENT:+x}" ]; then
-      if whiptail --backtitle "Proxmox install Script" --defaultno --title "SSH DETECTED" --yesno "It's suggested to use the Proxmox shell instead of SSH, since SSH can create issues while gathering variables. Would you like to proceed with using SSH?" 10 62; then
+      if whiptail --backtitle "F5 Install Script for Proxmox" --defaultno --title "SSH DETECTED" --yesno "It's suggested to use the Proxmox shell instead of SSH, since SSH can create issues while gathering variables. Would you like to proceed with using SSH?" 10 62; then
         echo "you've been warned"
       else
         clear
@@ -663,7 +664,7 @@ function advanced_settings() {
   fi
 
 
-  if (whiptail --backtitle "F5 Install Script for Proxmox" --title "ADVANCED SETTINGS COMPLETE" --yesno "Ready to create an XC CE  VM?" --no-button Do-Over 10 58); then
+  if (whiptail --backtitle "F5 Install Script for Proxmox" --title "ADVANCED SETTINGS COMPLETE" --yesno "Ready to create a $PROCUCT?" --no-button Do-Over 10 58); then
     msg_info "${RD}Creating an F5 Distributed Cloud Customer Edge VM using the above advanced settings${CL}"
   else
     header_info
@@ -835,7 +836,7 @@ NEXTID=$(pvesh get /cluster/nextid)
 # Configure a temporary directory to work in
 TEMP_DIR=$(mktemp -d)
 pushd $TEMP_DIR >/dev/null
-if whiptail --backtitle "F5 Proxmox install script" --title "F5 XC CE" --yesno "This will create a new F5 XC CE VM. Proceed?" 10 58; then
+if whiptail --backtitle "F5 Install Script for Proxmox" --title "$PRODUCT" --yesno "This will create a new F5 XC CE VM. Proceed?" 10 58; then
   :
 else
   header_info && echo -e "⚠ User exited script \n" && exit
@@ -857,7 +858,7 @@ fi
 
 start_script
 
-SNIPPET_FILE="$VMID.yaml"
+#SNIPPET_FILE="$VMID.yaml"
 
 # build configuration for the --ipconfig0 option
 IPCONFIG0=$(config_ipaddr0)
@@ -874,10 +875,10 @@ fi
 
 msg_info "Validating Storage for content type: images"
 STORAGE=$(get_storage images)
-select_snippets_storage
+#select_snippets_storage
 
 msg_ok "VM Image will be store in: ${CL}${BL}$STORAGE${CL} ${GN}"
-msg_ok "Cloud-Init snippets for the CE will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
+#msg_ok "Cloud-Init snippets for the $PRODUCT  will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
 
 create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
 
@@ -902,7 +903,7 @@ echo -en "\e[1A\e[0K"
 
 msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
 
-msg_info "Creating your F5 XC CE VM"
+msg_info "Creating your $PRODUCT VM"
 
 qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE \
   --machine $MACHINE --name $HN --ostype l26 \
