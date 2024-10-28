@@ -61,6 +61,8 @@ NS=""
 VLAN0=""
 VLAN1=""
 SSHKEYFILE=""
+CIPWD=""
+CIUSER=""
 #this var sets the product name in dialogs
 PRODUCT="F5 Distributed Cloud Customer Edge"
 #set this var to enable user configuration snippet like required for token setup automation on CEs.
@@ -927,6 +929,7 @@ qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE \
   --net0 virtio,$NET0 --ipconfig0 $IPCONFIG0 $NET1 \
   --scsihw virtio-scsi-single --boot order=scsi0  \
   --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
+  --citype nocloud --ciupgrade=0 --ciuser $CIUSER --cipassword $CIPWD \
   $CICUSTOM $NS $SSHKEYFILE
 
 msg_ok "Created a F5 Distributed Cloud Customer Edge VM ${CL}${BL}(${HN})"
