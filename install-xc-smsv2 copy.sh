@@ -12,13 +12,13 @@
 function header_info {
   clear
   cat <<"EOF"
-______ _____    _____          _        _ _ 
-|  ___|  ___|  |_   _|        | |      | | |
-| |_  |___ \     | | _ __  ___| |_ __ _| | |
-|  _|     \ \    | || '_ \/ __| __/ _` | | |
-| |   /\__/ /   _| || | | \__ \ || (_| | | |
-\_|   \____/    \___/_| |_|___/\__\__,_|_|_|
-                                            
+__   _______       _____  _____       ________  ___ _____        _____ 
+\ \ / /  __ \     /  __ \|  ___|     /  ___|  \/  |/  ___|      / __  \
+ \ V /| /  \/_____| /  \/| |__ ______\ `--.| .  . |\ `--.__   __`' / /'
+ /   \| |  |______| |    |  __|______|`--. \ |\/| | `--. \ \ / /  / /  
+/ /^\ \ \__/\     | \__/\| |___      /\__/ / |  | |/\__/ /\ V / ./ /___
+\/   \/\____/      \____/\____/      \____/\_|  |_/\____/  \_/  \_____/
+                                                                       
 EOF
 }
 header_info
@@ -61,10 +61,6 @@ NS=""
 VLAN0=""
 VLAN1=""
 SSHKEYFILE=""
-#this var sets the product name in dialogs
-PRODUCT="F5 BIG-IP NEXT CM"
-#set this var to enable user configuration snippet like required for token setup automation on CEs.
-DOCICUSTOM=""
 
 
 #our error handler
@@ -343,7 +339,7 @@ function is_valid_ipv4() {
 function ssh_check() {
   if command -v pveversion >/dev/null 2>&1; then
     if [ -n "${SSH_CLIENT:+x}" ]; then
-      if whiptail --backtitle "F5 Install Script for Proxmox" --defaultno --title "SSH DETECTED" --yesno "It's suggested to use the Proxmox shell instead of SSH, since SSH can create issues while gathering variables. Would you like to proceed with using SSH?" 10 62; then
+      if whiptail --backtitle "Proxmox install Script" --defaultno --title "SSH DETECTED" --yesno "It's suggested to use the Proxmox shell instead of SSH, since SSH can create issues while gathering variables. Would you like to proceed with using SSH?" 10 62; then
         echo "you've been warned"
       else
         clear
@@ -667,7 +663,7 @@ function advanced_settings() {
   fi
 
 
-  if (whiptail --backtitle "F5 Install Script for Proxmox" --title "ADVANCED SETTINGS COMPLETE" --yesno "Ready to create a $PROCUCT?" --no-button Do-Over 10 58); then
+  if (whiptail --backtitle "F5 Install Script for Proxmox" --title "ADVANCED SETTINGS COMPLETE" --yesno "Ready to create an XC CE  VM?" --no-button Do-Over 10 58); then
     msg_info "${RD}Creating an F5 Distributed Cloud Customer Edge VM using the above advanced settings${CL}"
   else
     header_info
@@ -839,36 +835,29 @@ NEXTID=$(pvesh get /cluster/nextid)
 # Configure a temporary directory to work in
 TEMP_DIR=$(mktemp -d)
 pushd $TEMP_DIR >/dev/null
-if whiptail --backtitle "F5 Install Script for Proxmox" --title "$PRODUCT" --yesno "This will create a new $PRODUCT. Proceed?" 10 58; then
+if whiptail --backtitle "F5 Proxmox install script" --title "F5 XC CE" --yesno "This will create a new F5 XC CE VM. Proceed?" 10 58; then
   :
 else
   header_info && echo -e "⚠ User exited script \n" && exit
 fi
 
-#Perform some preflight checks
+#setup the name for our snippet file 
+
+snippets_check
 check_root
 arch_check
 pve_check
 ssh_check
-
-# We only need to run these if we are configuring snippets for user scripts
-# for example when installing an XC CE VM.
-if [ -n "${DO_CICUSTOM}" ]; then
-  snippets_check
-  request_token
-fi
-
-# Have user define either a URL or a local file to get our install image from
+request_token
 prompt_for_image
 
-# If the image source is a URL we want to parse that out into path and image name
 if [[ "$INPUT_TYPE" == "URL" ]]; then
   parse_url "$INPUT_VALUE"
 fi
 
-#Launch main script
 start_script
 
+SNIPPET_FILE="$VMID.yaml"
 
 # build configuration for the --ipconfig0 option
 IPCONFIG0=$(config_ipaddr0)
@@ -883,25 +872,18 @@ else
   NET1=$(configure_net1)
 fi
 
-# As the user what storage to setup the VM on
 msg_info "Validating Storage for content type: images"
 STORAGE=$(get_storage images)
+select_snippets_storage
+
 msg_ok "VM Image will be store in: ${CL}${BL}$STORAGE${CL} ${GN}"
+msg_ok "Cloud-Init snippets for the CE will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
 
-#See if we need to configure for a User SNIPPET
-if [ -z "${DO_CICUSTOM}" ]; then
-  CICUSTOM="" 
-else
-  SNIPPET_FILE="$VMID.yaml"
-  select_snippets_storage
-  msg_ok "Cloud-Init snippets for the $PRODUCT  will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
-  create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
-  msg_ok "Snippet created in directory ${CL}${BL}$SNIP_PATH${CL} named ${CL}${BL}$SNIPPET_FILE${CL}"
-  CICUSTOM="--cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE"
-fi
+create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
 
+msg_ok "Snippet created in directory ${CL}${BL}$SNIP_PATH${CL} named ${CL}${BL}$SNIPPET_FILE${CL}"
 msg_ok "Virtual Machine ID is ${CL}${BL}$VMID${CL}."
-msg_info "Retrieving the Disk Image $PRODUCT"
+msg_info "Retrieving the Disk Image F5 Distributed Cloud Customer Edge"
 sleep 1
 msg_ok "${CL}${BL}${URL}${CL}"
 
@@ -920,14 +902,17 @@ echo -en "\e[1A\e[0K"
 
 msg_ok "Retrieved ${CL}${BL}${FILE}${CL}"
 
-msg_info "Creating your $PRODUCT VM"
+msg_info "Creating your F5 XC CE VM"
 
-qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE \
-  --machine $MACHINE --name $HN --ostype l26 \
-  --net0 virtio,$NET0 --ipconfig0 $IPCONFIG0 $NET1 \
-  --scsihw virtio-scsi-single --boot order=scsi0  \
-  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
-  $CICUSTOM $NS $SSHKEYFILE
+ 
+qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE --machine $MACHINE \
+  --net0 virtio,$NET0 --ipconfig0 $IPCONFIG0 $NET1 --scsihw virtio-scsi-single --name $HN --ostype l26 \
+  --boot order=scsi0  --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
+  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE $NS $SSHKEYFILE
 
+# pause for 5 seconds to let the system sync
+#sleep 5
+# start the VM
+#qm start $VMID
 msg_ok "Created a F5 Distributed Cloud Customer Edge VM ${CL}${BL}(${HN})"
 msg_ok "Completed Successfully!\n"
