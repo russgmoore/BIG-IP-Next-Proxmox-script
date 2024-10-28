@@ -61,7 +61,10 @@ NS=""
 VLAN0=""
 VLAN1=""
 SSHKEYFILE=""
+#this var sets the product name in dialogs
 PRODUCT="F5 BIG-IP NEXT CM"
+#set this var to enable user configuration snippet like required for token setup automation on CEs.
+DOCICUSTOM=""
 
 
 #our error handler
@@ -842,23 +845,30 @@ else
   header_info && echo -e "⚠ User exited script \n" && exit
 fi
 
-#setup the name for our snippet file 
-
-snippets_check
+#Perform some preflight checks
 check_root
 arch_check
 pve_check
 ssh_check
-#request_token
+
+# We only need to run these if we are configuring snippets for user scripts
+# for example when installing an XC CE VM.
+if [ -n "${DO_CICUSTOM}" ]; then
+  snippets_check
+  request_token
+fi
+
+# Have user define either a URL or a local file to get our install image from
 prompt_for_image
 
+# If the image source is a URL we want to parse that out into path and image name
 if [[ "$INPUT_TYPE" == "URL" ]]; then
   parse_url "$INPUT_VALUE"
 fi
 
+#Launch main script
 start_script
 
-#SNIPPET_FILE="$VMID.yaml"
 
 # build configuration for the --ipconfig0 option
 IPCONFIG0=$(config_ipaddr0)
@@ -873,18 +883,25 @@ else
   NET1=$(configure_net1)
 fi
 
+# As the user what storage to setup the VM on
 msg_info "Validating Storage for content type: images"
 STORAGE=$(get_storage images)
-#select_snippets_storage
-
 msg_ok "VM Image will be store in: ${CL}${BL}$STORAGE${CL} ${GN}"
-#msg_ok "Cloud-Init snippets for the $PRODUCT  will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
 
-#create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
+#See if we need to configure for a User SNIPPET
+if [ -z "${DO_CICUSTOM}" ]; then
+  CICUSTOM="" 
+else
+  SNIPPET_FILE="$VMID.yaml"
+  select_snippets_storage
+  msg_ok "Cloud-Init snippets for the $PRODUCT  will be stored in: ${CL}${BL}$SNIP_STOR${CL} ${GN}"
+  create_cloud_config $SNIP_PATH $SNIPPET_FILE $TOKEN
+  msg_ok "Snippet created in directory ${CL}${BL}$SNIP_PATH${CL} named ${CL}${BL}$SNIPPET_FILE${CL}"
+  CICUSTOM="--cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE"
+fi
 
-msg_ok "Snippet created in directory ${CL}${BL}$SNIP_PATH${CL} named ${CL}${BL}$SNIPPET_FILE${CL}"
 msg_ok "Virtual Machine ID is ${CL}${BL}$VMID${CL}."
-msg_info "Retrieving the Disk Image F5 Distributed Cloud Customer Edge"
+msg_info "Retrieving the Disk Image $PRODUCT"
 sleep 1
 msg_ok "${CL}${BL}${URL}${CL}"
 
@@ -910,7 +927,7 @@ qm create $VMID --cores $CORE_COUNT --memory $RAM_SIZE --cpu $CPU_TYPE \
   --net0 virtio,$NET0 --ipconfig0 $IPCONFIG0 $NET1 \
   --scsihw virtio-scsi-single --boot order=scsi0  \
   --ide2 $STORAGE:cloudinit --scsi0 $STORAGE:0,import-from=$FILE \
-  --cicustom user=$SNIP_STOR:snippets/$SNIPPET_FILE $NS $SSHKEYFILE
+  $CICUSTOM $NS $SSHKEYFILE
 
 msg_ok "Created a F5 Distributed Cloud Customer Edge VM ${CL}${BL}(${HN})"
 msg_ok "Completed Successfully!\n"
