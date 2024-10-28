@@ -915,7 +915,7 @@ else
   FILE="$INPUT_VALUE"
 fi
 
-#rename the file to end with ".qcom2" or import will fail
+#If needed rename the file to end with ".qcom2" or import will fail
 FILE=$(rename_qcow_file $FILE)
 
 echo -en "\e[1A\e[0K"
