@@ -64,7 +64,7 @@ SSHKEYFILE=""
 #this var sets the product name in dialogs
 PRODUCT="F5 Distributed Cloud Customer Edge"
 #set this var to enable user configuration snippet like required for token setup automation on CEs.
-DOCICUSTOM="yes"
+DO_CICUSTOM="yes"
 
 
 #our error handler
