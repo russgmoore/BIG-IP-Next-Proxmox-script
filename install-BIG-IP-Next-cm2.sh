@@ -64,7 +64,7 @@ SSHKEYFILE=""
 #this var sets the product name in dialogs
 PRODUCT="F5 BIG-IP NEXT CM"
 #set this var to enable user configuration snippet like required for token setup automation on CEs.
-DOCICUSTOM=""
+DO_CICUSTOM=""
 
 
 #our error handler
